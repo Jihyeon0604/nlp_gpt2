@@ -31,23 +31,5 @@
 ## 환경 설정
 **주목**: .yml 파일의 버전을 변경하지 말것.
 
-#### GitHub에서 Source code 내려 받기:
-* 단순히 압축 파일 내려받아서 풀지 말고 GitHub의 프로젝트 리포지토리를 클론할 것.
-* 프로젝트 폴더를 만들 폴더로 가서 다음 명령을 터미널에서 실행한다.
-```
-git clone https://github.com/kikim6114/nlp2025-1.git
-```
-* 소스코드 변경 사항이 있을 경우 공지가 나가므로, 그 경우 `git pull` 하여 PC의 로컬 리포지토리를 업데이트할 수 있다.
-
-#### 파이썬 설치
-* anaconda3 를 설치한다.
-
-#### 환경 및 패키지 설치
-
-* conda env create -f env.yml
-* conda activate nlp_final
-**주의**:
-* 프로젝트 PART-I을 수행하면서, 위에서 설치된 패키지만을 사용해야 하며, 별도의 다른 패키지는 허용되지 않는다.
-* 모든 command 옵션이나 파라미터는 변경/추가하면 안된다.
-
-
+conda env create -f env.yml
+conda activate nlp_final
