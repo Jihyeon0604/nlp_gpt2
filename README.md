@@ -45,7 +45,8 @@ git clone https://github.com/kikim6114/nlp2025-1.git
 #### 환경 및 패키지 설치
 
 * conda env create -f env.yml
-* conda activate nlp_final
+* conda activate nlp_final  
+
 **주의**:
 * 프로젝트 PART-I을 수행하면서, 위에서 설치된 패키지만을 사용해야 하며, 별도의 다른 패키지는 허용되지 않는다.
 * 모든 command 옵션이나 파라미터는 변경/추가하면 안된다.
