@@ -2,8 +2,8 @@
 
 
 """
-This file contains our Dataset class for Quora paraphrase detection. You may want to modify this file to train on
-additional sources of data, or if you change how the Quora dataset is processed (i.e. data augmentation, etc.).
+이 파일은 Quora의 Paraphrase Detection을 위한 Dataset 클래스를 포함한다. 추가 데이터 소스로 훈련시키거나
+Quora 데이터셋의 처리 방식(예: 데이터 증강 등)을 변경하려는 경우 이 파일을 수정할 수 있다.
 """
 
 import csv

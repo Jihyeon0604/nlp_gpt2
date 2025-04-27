@@ -1,4 +1,4 @@
-# Creates a zip file for submission on Gradescope.
+# 과제 평가를 위해 zip 파일을 만들어 제출합니다.
 
 import os
 import zipfile
@@ -9,7 +9,7 @@ required_files = [p for p in os.listdir('.') if p.endswith('.py')] + \
                         [f'modules/{p}' for p in os.listdir('modules')]
 
 def main():
-    aid = 'cs224n_default_final_project_submission'
+    aid = 'nlp2025-1_project_outputs'
 
     with zipfile.ZipFile(f"{aid}.zip", 'w') as zz:
         for file in required_files:

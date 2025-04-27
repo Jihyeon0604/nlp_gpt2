@@ -12,28 +12,29 @@ class CausalSelfAttention(nn.Module):
     self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
     self.all_head_size = self.num_attention_heads * self.attention_head_size
 
-    # Initialize the linear transformation layers for key, value, query.
+    # key, value, query에 대한 선형변환 layer 초기화.
     self.query = nn.Linear(config.hidden_size, self.all_head_size)
     self.key = nn.Linear(config.hidden_size, self.all_head_size)
     self.value = nn.Linear(config.hidden_size, self.all_head_size)
-    # This dropout is applied to normalized attention scores following the original
-    # implementation of transformer. Although it is a bit unusual, we empirically
-    # observe that it yields better performance.
+
+    # 이 드롭아웃은 트랜스포머의 원래 구현에 따라 normalized attention scores에 적용된다.
+    # 다소 이례적이지만, 경험적으로 이것이 더 나은 성능을 제공한다고 알려져 있다.
     self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
   def transform(self, x, linear_layer):
-    # The corresponding linear_layer of k, v, q are used to project the hidden_state (x).
+    # hidden_state (x) 를 사영하기 위해 k, v, q의 해당 linear_layer가 사용된다.
     proj = linear_layer(x)
-    # Next, we need to produce multiple heads for the proj. This is done by spliting the
-    # hidden state to self.num_attention_heads, each of size self.attention_head_size.
+    # 다음으로, 프로젝션에 대해 여러 헤드를 생성해야 한다. 
+    # 이는 은닉 상태를 self.num_attention_heads로 분할하며, 
+    # 각 헤드는 self.attention_head_size 크기를 갖도록 한다.
     proj = rearrange(proj, 'b t (h d) -> b t h d', h=self.num_attention_heads)
-    # By proper transpose, we have proj of size [bs, num_attention_heads, seq_len, attention_head_size].
+    # 적절히 전치하여 크기 [bs, num_attention_heads, seq_len, attention_head_size]인 프로젝션을 얻는다.
     proj = rearrange(proj, 'b t h d -> b h t d')
     return proj
 
   def attention(self, key, query, value, attention_mask):
 
-    ### YOUR CODE HERE
+    ### 완성시켜야 할 빈 코드 블록
     raise NotImplementedError
 
 
@@ -43,13 +44,13 @@ class CausalSelfAttention(nn.Module):
     attention_mask: [bs, 1, 1, seq_len]
     output: [bs, seq_len, hidden_state]
     """
-    # First, we have to generate the key, value, query for each token for multi-head attention
-    # using self.transform (more details inside the function).
-    # Size of *_layer is [bs, num_attention_heads, seq_len, attention_head_size].
+    # 먼저, self.transform을 사용하여 multi-head attention에 필요한
+    # 각 토큰의 key, value, query를 생성해야 한다(함수 내부에 자세한 내용 있음).
+    # *_layer의 크기 = [bs, num_attention_heads, seq_len, attention_head_size].
     key_layer = self.transform(hidden_states, self.key)
     value_layer = self.transform(hidden_states, self.value)
     query_layer = self.transform(hidden_states, self.query)
     
-    # Calculate the multi-head attention.
+    # multi-head attention 계산.
     attn_value = self.attention(key_layer, query_layer, value_layer, attention_mask)
     return attn_value

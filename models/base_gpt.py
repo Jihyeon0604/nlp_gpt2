@@ -12,14 +12,14 @@ class GPTPreTrainedModel(nn.Module):
     self.name_or_path = config.name_or_path
 
   def init_weights(self):
-    # Initialize weights
+    # 가중치 초기화
     self.apply(self._init_weights)
 
   def _init_weights(self, module):
     """ Initialize the weights """
     if isinstance(module, (nn.Linear, nn.Embedding)):
-      # Slightly different from the TF version which uses truncated_normal for initialization
-      # cf https://github.com/pytorch/pytorch/pull/5617
+      # 초기화를 위해 truncated_normal을 사용하는 TF 버전과 약간 차이가 있다.
+      # (참고) https://github.com/pytorch/pytorch/pull/5617
       module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
     elif isinstance(module, nn.LayerNorm):
       module.bias.data.zero_()
@@ -30,4 +30,4 @@ class GPTPreTrainedModel(nn.Module):
   @property
   def dtype(self) -> dtype:
     return get_parameter_dtype(self)
-
+  

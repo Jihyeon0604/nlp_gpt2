@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 '''
-Trains and evaluates GPT2SentimentClassifier on SST and CFIMDB
+SST 과 CFIMDB 위에서 GPT2SentimentClassifier를 훈련하고 평가.
 '''
 
 import random, numpy as np, argparse
@@ -21,7 +21,7 @@ from tqdm import tqdm
 TQDM_DISABLE = False
 
 
-# Fix the random seed.
+# 필요한 모든 random seed 설정.
 def seed_everything(seed=11711):
   random.seed(seed)
   np.random.seed(seed)
@@ -34,10 +34,10 @@ def seed_everything(seed=11711):
 
 class GPT2SentimentClassifier(torch.nn.Module):
   '''
-  This module performs sentiment classification using GPT2 in a cloze-style (fill-in-the-blank) task.
+  이 모듈은 GPT-2를 사용하여 클로즈 스타일(빈칸 채우기) 작업으로 감정 분류를 수행한다.
 
-  In the SST dataset, there are 5 sentiment categories (from 0 - "negative" to 4 - "positive").
-  Thus, your forward() should return one logit for each of the 5 classes.
+  SST 데이터셋의 감정 범주 = 5 가지(0 - "부정"에서 4 - "긍정"까지).
+  따라서, forward() 함수는 5개의 클래스 각각에 대해 하나의 로짓(logit)을 반환해야 한다.
   '''
 
   def __init__(self, config):
@@ -45,7 +45,7 @@ class GPT2SentimentClassifier(torch.nn.Module):
     self.num_labels = config.num_labels
     self.gpt = GPT2Model.from_pretrained()
 
-    # Pretrain mode does not require updating GPT paramters.
+    # 사전학습 모드에서는 GPT 파라미터들을 업데이트할 필요가가 없다.
     assert config.fine_tune_mode in ["last-linear-layer", "full-model"]
     for param in self.gpt.parameters():
       if config.fine_tune_mode == 'last-linear-layer':
@@ -53,20 +53,23 @@ class GPT2SentimentClassifier(torch.nn.Module):
       elif config.fine_tune_mode == 'full-model':
         param.requires_grad = True
 
-    ### TODO: Create any instance variables you need to classify the sentiment of BERT embeddings.
-    ### YOUR CODE HERE
+    '''
+    TODO: BERT 임베딩의 감정 분류를 위해 필요한 인스턴스 변수를 생성하시오.
+    '''
+    ### 완성시켜야 할 빈 코드 블록
     raise NotImplementedError
 
 
   def forward(self, input_ids, attention_mask):
-    '''Takes a batch of sentences and returns logits for sentiment classes'''
+    '''문장들의 batch를 받아서 감정 클래스에 대한 로짓을 반환'''
 
-    ### TODO: The final GPT contextualized embedding is the hidden state of the last token.
-    ###       HINT: You should consider what is an appropriate return value given that
-    ###       the training loop currently uses F.cross_entropy as the loss function.
-    ### YOUR CODE HERE
+    '''
+    TODO: 최종 GPT contextualized embedding은 마지막 토큰의 hidden state이다.
+        힌트: 현재 훈련 반복루프에서 손실 함수로 `F.cross_entropy`를 사용하고 있음을 고려하여
+        적절한 반환값이 무엇인지 생각해보시오.
+    '''
+    ### 완성시켜야 할 빈 코드 블록
     raise NotImplementedError
-
 
 
 class SentimentDataset(Dataset):
@@ -144,7 +147,7 @@ class SentimentTestDataset(Dataset):
     return batched_data
 
 
-# Load the data: a list of (sentence, label).
+# 데이터 로드: (sentence, label)의 리스트.
 def load_data(filename, flag='train'):
   num_labels = {}
   data = []
@@ -171,7 +174,7 @@ def load_data(filename, flag='train'):
     return data
 
 
-# Evaluate the model on dev examples.
+# dev 사례들로 모델을 평가한다.
 def model_eval(dataloader, model, device):
   model.eval()  # Switch to eval model, will turn off randomness like dropout.
   y_true = []
@@ -201,7 +204,7 @@ def model_eval(dataloader, model, device):
   return acc, f1, y_pred, y_true, sents, sent_ids
 
 
-# Evaluate the model on test examples.
+# test 사례들로 모델을 평가한다.
 def model_test_eval(dataloader, model, device):
   model.eval()  # Switch to eval model, will turn off randomness like dropout.
   y_pred = []
@@ -242,7 +245,7 @@ def save_model(model, optimizer, args, config, filepath):
 
 def train(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-  # Create the data and its corresponding datasets and dataloader.
+  # 데이터와 해당 데이터셋 및 데이터로더를 만든다.
   train_data, num_labels = load_data(args.train, 'train')
   dev_data = load_data(args.dev, 'valid')
 
@@ -270,7 +273,6 @@ def train(args):
   optimizer = AdamW(model.parameters(), lr=lr)
   best_dev_acc = 0
 
-  # Run for the specified number of epochs.
   for epoch in range(args.epochs):
     model.train()
     train_loss = 0

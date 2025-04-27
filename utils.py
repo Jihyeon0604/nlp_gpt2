@@ -1,5 +1,3 @@
-# TODO FOR TAs: MODIFY THIS FILE
-
 from typing import Dict, List, Optional, Union, Tuple, BinaryIO
 import os
 import sys

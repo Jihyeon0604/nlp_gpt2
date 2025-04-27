@@ -10,12 +10,12 @@ from utils import get_extended_attention_mask
 
 class GPT2Model(GPTPreTrainedModel):
   """
-  The GPT model returns the final embeddings for each token in a sentence.
+  GPT 모델은 문장 내 각 토큰에 대한 최종 임베딩을 반환한다.
 
-  The model consists of:
-  1. Embedding layers (used in self.embed).
-  2. A stack of n GPT layers (used in self.encode).
-  3. A linear transformation layer for the [CLS] token (used in self.forward, as given).
+  모델 구성은 다음과 같다:
+  1. 임베딩 층 (self.embed 에서 사용).
+  2. n 개의 GPT 층의 적층 (self.encode 에서 사용).
+  3. [CLS] 토큰에 대한 선형변환 층(self.forward 에서 그대로 사용).
   """
 
   def __init__(self, config):
@@ -27,14 +27,14 @@ class GPT2Model(GPTPreTrainedModel):
     self.pos_embedding = nn.Embedding(config.max_position_embeddings, config.hidden_size)
     self.embed_dropout = nn.Dropout(config.hidden_dropout_prob)
 
-    # Register position_ids (1, len position emb) to buffer because it is a constant.
+    # (1, position_임베딩_길이)의 position_ids는 학습되지 않는 상수이므로 버퍼에 저장해둔다.
     position_ids = torch.arange(config.max_position_embeddings).unsqueeze(0)
     self.register_buffer('position_ids', position_ids)
 
     # GPT-2 layers.
     self.gpt_layers = nn.ModuleList([GPT2Layer(config) for _ in range(config.num_hidden_layers)])
 
-    # [CLS] token transformations.
+    # [CLS] 토큰 변환.
     self.pooler_dense = nn.Linear(config.hidden_size, config.hidden_size)
     self.pooler_af = nn.Tanh()
 
@@ -49,51 +49,50 @@ class GPT2Model(GPTPreTrainedModel):
 
     inputs_embeds = None
 
-    ### YOUR CODE HERE
+    ### 완성시켜야 할 빈 코드 블록
     raise NotImplementedError
 
 
     pos_ids = self.position_ids[:, :seq_length]
     pos_embeds = None
 
-    ### TODO: Use pos_ids to get position embedding from self.pos_embedding into pos_embeds.
-    ###       Then, add two embeddings together; then apply dropout and return.
-    ### YOUR CODE HERE
+    ### TODO: pos_ids를 사용하여 self.pos_embedding에서 위치 임베딩을 가져와 pos_embeds에 저장한다.
+    ###       그런 다음, 두 개의 임베딩을 더하고, 드롭아웃을 적용한 뒤 반환한다.
+    ### 완성시켜야 할 빈 코드 블록
     raise NotImplementedError
 
 
   def encode(self, hidden_states, attention_mask):
     """
-    hidden_states: the output from the embedding layer [batch_size, seq_len, hidden_size]
+    hidden_states: 임베딩 층으로부터의 출력 [batch_size, seq_len, hidden_size]
     attention_mask: [batch_size, seq_len]
     """
-    # Get the extended attention mask for self-attention.
-    # Returns extended_attention_mask of size [batch_size, 1, 1, seq_len].
-    # Distinguishes between non-padding tokens (with a value of 0) and padding tokens
-    # (with a value of a large negative number).
+    # self-attention을 위한 extended attention mask를 구한다.
+    # 크기 [batch_size, 1, 1, seq_len]인 extended_attention_mask를 반환.
+    # (0 값이 포함된) non-padding token과 (큰 음수들로 된) padding token을 구별할 것.
     extended_attention_mask: torch.Tensor = get_extended_attention_mask(attention_mask, self.dtype)
 
-    # Pass the hidden states through the encoder layers.
+    # encoder 층을 통해 hidden states 전달.
     for i, layer_module in enumerate(self.gpt_layers):
-      # Feed the encoding from the last bert_layer to the next.
+      # 마지막 bert_layer에서 인코딩를 가져다가 다음 층에 주입.
       hidden_states = layer_module(hidden_states, extended_attention_mask)
 
     return hidden_states
 
   def forward(self, input_ids, attention_mask):
     """
-    input_ids: [batch_size, seq_len], seq_len is the max length of the batch
-    attention_mask: same size as input_ids, 1 represents non-padding tokens, 0 represents padding tokens
+    input_ids: [batch_size, seq_len], seq_len은 batch의 최대 길이
+    attention_mask: input_ids 와 크기가 같으며, 1 은 non-padding token을, 0 은 padding token을 나타낸다.  
     """
-    # Get the embedding for each input token.
+    # 각 입렵 토큰에 대한 임베딩 구하기기
     embedding_output = self.embed(input_ids=input_ids)
 
-    # Feed to a transformer (a stack of GPTLayers).
+    # GPYLayers의 stack인 트랜스포머에 주입.
     sequence_output = self.encode(embedding_output, attention_mask=attention_mask)
     sequence_output = self.final_layer_norm(sequence_output)
 
-    # Get the hidden state of the final token.
-    last_non_pad_idx = attention_mask.sum(dim=1) - 1  # Subtract 1 to get last index
+    # 마지막 토큰의 hidden state 구하기.
+    last_non_pad_idx = attention_mask.sum(dim=1) - 1  # 마지막 인덱스를 구하려면 1을 뺀다.
     last_token = sequence_output[torch.arange(sequence_output.shape[0]), last_non_pad_idx]
 
     return {'last_hidden_state': sequence_output, 'last_token': last_token}
@@ -102,10 +101,12 @@ class GPT2Model(GPTPreTrainedModel):
     """
     GPT-2 uses weight tying with the input word embeddings. The logits are the dot product between output hidden states
     and the word embedding weights:
+    GPT-2는 입력 단어 임베딩과 가중치 공유(weight tying)를 사용한다.
+    로짓(logits)은 출력 은닉 상태와 단어 임베딩 가중치 간의 내적(dot product). 
 
       return hidden_state(s) * E^T
     """
-    ### YOUR CODE HERE
+    ### 완성시켜야 할 빈 코드 블록
     raise NotImplementedError
 
 
@@ -121,7 +122,7 @@ class GPT2Model(GPTPreTrainedModel):
 
     for i in range(l):
       l = our_model.gpt_layers[i]
-      # Remap the Q,K,V weights from a conv1d to 3 linear projections
+      # Q, K, V 가중치를 conv1d에서 3개의 선형 프로젝션으로 재매핑.
       l.self_attention.query.weight.data = gpt_model.state_dict()[f'h.{i}.attn.c_attn.weight'][:, :d].T
       l.self_attention.query.bias.data = gpt_model.state_dict()[f'h.{i}.attn.c_attn.bias'][:d]
       l.self_attention.key.weight.data = gpt_model.state_dict()[f'h.{i}.attn.c_attn.weight'][:, d:d*2].T
@@ -129,25 +130,25 @@ class GPT2Model(GPTPreTrainedModel):
       l.self_attention.value.weight.data = gpt_model.state_dict()[f'h.{i}.attn.c_attn.weight'][:, d*2:].T
       l.self_attention.value.bias.data = gpt_model.state_dict()[f'h.{i}.attn.c_attn.bias'][d*2:]
 
-      # Remap final dense layer in MHA.
+      # MHA의 마지막 dense layer를 재매핑.
       l.attention_dense.weight.data = gpt_model.state_dict()[f'h.{i}.attn.c_proj.weight'].T
       l.attention_dense.bias.data = gpt_model.state_dict()[f'h.{i}.attn.c_proj.bias']
 
-      # Remap attention layer norm.
+      # Attention layer norm을 재매핑.
       l.attention_layer_norm.weight.data = gpt_model.state_dict()[f'h.{i}.ln_1.weight']
       l.attention_layer_norm.bias.data = gpt_model.state_dict()[f'h.{i}.ln_1.bias']
 
-      # Remap post-attention MLP layers.
+      # Post-attention MLP layer들을 재매핑
       l.interm_dense.weight.data = gpt_model.state_dict()[f'h.{i}.mlp.c_fc.weight'].T
       l.interm_dense.bias.data = gpt_model.state_dict()[f'h.{i}.mlp.c_fc.bias']
       l.out_dense.weight.data = gpt_model.state_dict()[f'h.{i}.mlp.c_proj.weight'].T
       l.out_dense.bias.data = gpt_model.state_dict()[f'h.{i}.mlp.c_proj.bias']
 
-      # Remap second layer norm weights.
+      # 두번째 layer norm weights를 재매핑.
       l.out_layer_norm.weight.data = gpt_model.state_dict()[f'h.{i}.ln_2.weight']
       l.out_layer_norm.bias.data = gpt_model.state_dict()[f'h.{i}.ln_2.bias']
 
-    # Remap the final layer norm values.
+    # 마지막 layer norm 값들을 재매핑.
     our_model.final_layer_norm.weight.data = gpt_model.state_dict()['ln_f.weight']
     our_model.final_layer_norm.bias.data = gpt_model.state_dict()['ln_f.bias']
 

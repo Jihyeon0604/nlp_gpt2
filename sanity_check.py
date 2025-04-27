@@ -6,14 +6,12 @@ from transformers import GPT2Model as OpenAIGPT2Model
 from utils import model_size_to_params
 
 
-
-
 def test_gpt2(model_size='gpt2'):
   sent_ids = torch.tensor([[101, 7592, 2088, 102, 0, 0, 0, 0],
                            [101, 7592, 15756, 2897, 2005, 17953, 2361, 102]])
   att_mask = torch.tensor([[1, 1, 1, 1, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1]])
 
-  # Load both the OpenAI and your own model.
+  # OpenAI 모델과 자신의 모델을 모두 로드한다.
   openai_model = OpenAIGPT2Model.from_pretrained(model_size)
   gpt = GPT2Model.from_pretrained(model=model_size, **model_size_to_params(model_size))
 

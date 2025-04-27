@@ -45,23 +45,20 @@ class AdamW(Optimizer):
                 # Access hyperparameters from the `group` dictionary.
                 alpha = group["lr"]
 
+                '''
+                TODO: AdamW 구현을 완성하시오. 
+                    위의 state 딕셔너리를 사용하여 상태를 읽고 저장하시오.
+                    하이퍼파라미터는 `group` 딕셔너리에서 읽을 수 있다(생성자에 저장된 lr, betas, eps, weight_decay).
 
-                ### TODO: Complete the implementation of AdamW here, reading and saving
-                ###       your state in the `state` dictionary above.
-                ###       The hyperparameters can be read from the `group` dictionary
-                ###       (they are lr, betas, eps, weight_decay, as saved in the constructor).
-                ###
-                ###       To complete this implementation:
-                ###       1. Update the first and second moments of the gradients.
-                ###       2. Apply bias correction
-                ###          (using the "efficient version" given in https://arxiv.org/abs/1412.6980;
-                ###          also given in the pseudo-code in the project description).
-                ###       3. Update parameters (p.data).
-                ###       4. Apply weight decay after the main gradient-based updates.
-                ###
-                ###       Refer to the default project handout for more details.
-                ### YOUR CODE HERE
+                        이 구현을 완성하기 위해서 해야할 일들:
+                          1. 그래디언트의 1차 모멘트(첫 번째 모멘트)와 2차 모멘트(두 번째 모멘트)를 업데이트.
+                          2. Bias correction을 적용(https://arxiv.org/abs/1412.6980 에 제공된 "efficient version" 사용; 프로젝트 설명의 pseudo-code에도 포함됨).
+                          3. 파라미터(p.data)를 업데이트.
+                          4. 그래디언트 기반의 메인 업데이트 후 weight decay 적용.
+
+                        자세한 내용은 기본 프로젝트 안내문을 참조할 것.
+                '''
+                ### 완성시켜야 할 빈 코드 블록
                 raise NotImplementedError
-
 
         return loss

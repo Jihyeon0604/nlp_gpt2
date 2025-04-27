@@ -1,7 +1,7 @@
 '''
-This module contains the implementation of a base configuration class (`PretrainedConfig`)
-and a specific configuration classes (`GPT2Config`) for managing the hyperparameters
-and architecture details of our GPT-2 model.
+이 모듈은 기본 설정 클래스(`PretrainedConfig`)와
+GPT-2 모델의 하이퍼파라미터 및 아키텍처 세부 사항을 관리하기 위한 
+특정한 configuration 클래스(`GPT2Config`)의 구현을 포함한다.
 '''
 
 from typing import Union, Tuple, Dict, Any
@@ -15,24 +15,24 @@ class PretrainedConfig(object):
   is_composition: bool = False
 
   def __init__(self, **kwargs):
-    # Attributes with defaults
+    # Attributes 및 defaults
     self.return_dict = kwargs.pop("return_dict", True)
     self.output_hidden_states = kwargs.pop("output_hidden_states", False)
     self.output_attentions = kwargs.pop("output_attentions", False)
-    self.torchscript = kwargs.pop("torchscript", False)  # Only used by PyTorch models
+    self.torchscript = kwargs.pop("torchscript", False)  # PyTorch 모델에서만 사용됨
     self.use_bfloat16 = kwargs.pop("use_bfloat16", False)
     self.pruned_heads = kwargs.pop("pruned_heads", {})
     self.tie_word_embeddings = kwargs.pop(
       "tie_word_embeddings", True
-    )  # Whether input and output word embeddings should be tied for all MLM, LM and Seq2Seq models.
+    )  # 모든 모델에서 입력 및 출력 단어 임베딩을 공유할 것인지 여부. 
 
-    # Is decoder is used in encoder-decoder models to differentiate encoder from decoder
+    # 디코더가 사용되는지 여부(인코더-디코더 모델에서 인코더와 디코더를 구분하기 위해).
     self.is_encoder_decoder = kwargs.pop("is_encoder_decoder", False)
     self.is_decoder = kwargs.pop("is_decoder", False)
     self.add_cross_attention = kwargs.pop("add_cross_attention", False)
     self.tie_encoder_decoder = kwargs.pop("tie_encoder_decoder", False)
 
-    # Parameters for sequence generation
+    # 시퀀스 생성을 위한 파라미터들.
     self.max_length = kwargs.pop("max_length", 20)
     self.min_length = kwargs.pop("min_length", 0)
     self.do_sample = kwargs.pop("do_sample", False)
@@ -55,7 +55,7 @@ class PretrainedConfig(object):
     self.forced_bos_token_id = kwargs.pop("forced_bos_token_id", None)
     self.forced_eos_token_id = kwargs.pop("forced_eos_token_id", None)
 
-    # Fine-tuning task arguments
+    # 미세조정 작업 arguments
     self.architectures = kwargs.pop("architectures", None)
     self.finetuning_task = kwargs.pop("finetuning_task", None)
     self.id2label = kwargs.pop("id2label", None)
@@ -63,7 +63,7 @@ class PretrainedConfig(object):
     if self.id2label is not None:
       kwargs.pop("num_labels", None)
       self.id2label = dict((int(key), value) for key, value in self.id2label.items())
-      # Keys are always strings in JSON so convert ids to int here.
+      # JSON에서 Key는 항상 string이므로, 여기서 id를 int로 변환해야 한다. 
     else:
       self.num_labels = kwargs.pop("num_labels", 2)
 
@@ -77,7 +77,7 @@ class PretrainedConfig(object):
 
     self.decoder_start_token_id = kwargs.pop("decoder_start_token_id", None)
 
-    # task specific arguments
+    # 태스크 특정 arguments
     self.task_specific_params = kwargs.pop("task_specific_params", None)
 
     # TPU arguments
@@ -86,10 +86,10 @@ class PretrainedConfig(object):
     # Name or path to the pretrained checkpoint
     self.name_or_path = str(kwargs.pop("name_or_path", ""))
 
-    # Drop the transformers version info
+    # 트랜스포머 버전 정보 삭제.
     kwargs.pop("transformers_version", None)
 
-    # Additional attributes without default values
+    # 기본값 없는 추가 속성들.
     for key, value in kwargs.items():
       try:
         setattr(self, key, value)
@@ -116,7 +116,7 @@ class PretrainedConfig(object):
     if hasattr(config, "pruned_heads"):
       config.pruned_heads = dict((int(key), value) for key, value in config.pruned_heads.items())
 
-    # Update config with kwargs if needed
+    # 필요할 경우 kwargs로 config 업데이트.
     to_remove = []
     for key, value in kwargs.items():
       if hasattr(config, key):
@@ -153,7 +153,7 @@ class PretrainedConfig(object):
       )
 
     try:
-      # Load from URL or cache if already cached
+      # URL로 로드하거나, 이미 캐시되었으면 캐시에서 로드드
       resolved_config_file = cached_path(
         config_file,
         cache_dir=cache_dir,
@@ -163,7 +163,7 @@ class PretrainedConfig(object):
         local_files_only=local_files_only,
         use_auth_token=use_auth_token,
       )
-      # Load config dict
+      # config dict 로드드
       config_dict = cls._dict_from_json_file(resolved_config_file)
 
     except EnvironmentError as err:
@@ -225,6 +225,3 @@ class GPT2Config(PretrainedConfig):
     self.gradient_checkpointing = gradient_checkpointing
     self.position_embedding_type = position_embedding_type
     self.use_cache = use_cache
-
-
-

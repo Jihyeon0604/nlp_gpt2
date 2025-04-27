@@ -1,10 +1,11 @@
 '''
-Sonnet generation starter code.
+소넷 생성을 위한 시작 코드.
 
-Running:
+실행:
   `python sonnet_generation.py --use_gpu`
 
 trains your SonnetGPT model and writes the required submission files.
+SonnetGPT 모델을 훈련하고, 필요한 제출용 파일을 작성한다.
 '''
 
 import argparse
@@ -30,7 +31,7 @@ from optimizer import AdamW
 TQDM_DISABLE = False
 
 
-# Fix the random seed.
+# 재현성을 위한 random seed 고정.
 def seed_everything(seed=11711):
   random.seed(seed)
   np.random.seed(seed)
@@ -42,7 +43,7 @@ def seed_everything(seed=11711):
 
 
 class SonnetGPT(nn.Module):
-  """Your GPT-2 Model designed for paraphrase detection."""
+  """Sonnet 생성을 위해 설계된 여러분의 GPT-2 모델."""
 
   def __init__(self, args):
     super().__init__()
@@ -50,17 +51,16 @@ class SonnetGPT(nn.Module):
     self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     self.tokenizer.pad_token = self.tokenizer.eos_token
 
-    # By default, fine-tune the full model. TODO: this is maybe not idea.
+    # 기본적으로, 전체 모델을 fine-tuning한다. TODO: 이것은 좋은 생각이 아닌 것 같다.
     for param in self.gpt.parameters():
       param.requires_grad = True
 
   def forward(self, input_ids, attention_mask):
     """
-    This is similar to the forward for ParaphraseGPT, but we now want to produce a logit for each token in our sequence;
-    not just the last token! This will allow our model to learn the natural language distribution that composes sonnets,
-    not just the distribution over next tokens for the last token!
+    ParaphraseGPT의 forward pass와 유사하지만, 여기서는 시퀀스의 마지막 토큰뿐만 아니라 시퀀스의 각 토큰에 대한 logit을 생성하려고 한다.
+    이를 통해, 마지막 토큰에 대한 다음 토큰의 분포만 학습하는 것이 아니라, 모델은 소네트를 구성하는 자연어 분포를 학습할 수 있다.
     """
-    ### YOUR CODE HERE
+    ### 완성시켜야 할 빈 코드 블록
     raise NotImplementedError
 
 
@@ -71,18 +71,18 @@ class SonnetGPT(nn.Module):
   @torch.no_grad()
   def generate(self, encoding, temperature=0.7, top_p=0.9, max_length=128):
     """
-    Generates an original sonnet using top-p sampling and softmax temperature.
+    top-p sampling 과 softmax temperature를 사용하여 새로운 소넷을 생성한다.
 
-    TODO: this is probably not ideal. You can look at hugging face's model.generate(...) function for inspiration.
-    In particular, generating multiple sequences and choosing the best with beam search is one avenue. Top_k is another;
-    there are many.
+    TODO: 지금 이 방법은 기대 이하일 수 있다. 영감을 얻기 위해 Hugging Face의 model.generate(...) 함수를 참고해도 좋겠다.
+        여러 시퀀스를 생성하고 beam search를 통해 최적의 시퀀스를 선택하는 것도 좋은 한 가지 방법이다.
+        Top-k 샘플링 역시 또 다른 방법이며, 그 외에도 많은 접근법이 있다.
     """
     token_ids = encoding.to(self.get_device())
     attention_mask = torch.ones(token_ids.shape, dtype=torch.int64).to(self.get_device())
 
 
     for _ in range(max_length):
-      # Forward pass to get logits
+      # logits을 구하기 위한 forward pass.
       logits_sequence = self.forward(token_ids, attention_mask)
       logits_last_token = logits_sequence[:, -1, :] / temperature  # Apply temperature scaling
 
@@ -131,14 +131,14 @@ def save_model(model, optimizer, args, filepath):
 
 
 def train(args):
-  """Train GPT-2 for paraphrase detection on the Quora dataset."""
-  device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-  # Create the data and its corresponding datasets and dataloader.
+  """Sonnet 데이터셋에서 소넷 생성을 위해 GPT-2 훈련.""" 
+    device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
+  # 데이터, 해당 데이터셋 및 데이터로드 생성하기.
   sonnet_dataset = SonnetsDataset(args.sonnet_path)
   sonnet_dataloader = DataLoader(sonnet_dataset, shuffle=True, batch_size=args.batch_size,
                                  collate_fn=sonnet_dataset.collate_fn)
 
-  # Create the held-out dataset: these only have the first 3 lines. Your job is to fill in the rest!
+  # held-out 데이터셋 만들기: 처음 3 줄만 있다. 나머지를 채우는 것은 여러분 몫이다!
   held_out_sonnet_dataset = SonnetsDataset(args.held_out_sonnet_path)
 
   args = add_arguments(args)
@@ -148,23 +148,22 @@ def train(args):
   lr = args.lr
   optimizer = AdamW(model.parameters(), lr=lr)
 
-  # Run for the specified number of epochs.
   for epoch in range(args.epochs):
     model.train()
     train_loss = 0
     num_batches = 0
 
     for batch in tqdm(sonnet_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
-      # Get the input and move it to the gpu (I do not recommend training this model on CPU).
+      # 입력을 가져와서 GPU로 보내기(이 모델을 CPU에서 훈련시키는 것을 권장하지 않는다).
       b_ids, b_mask = batch['token_ids'], batch['attention_mask']
       b_ids = b_ids.to(device)
       b_mask = b_mask.to(device)
 
-      # Compute the loss, gradients, and update the model's parameters.
+      # 손실, 그래디언트를 계산하고 모델 파라미터 업데이트.
       optimizer.zero_grad()
       logits = model(b_ids, b_mask)
-      logits = rearrange(logits[:, :-1].contiguous(), 'b t d -> (b t) d')  # Ignore the last prediction in the sequence.
-      labels = b_ids[:, 1:].contiguous().flatten()  # Ignore the first token to compose the labels.
+      logits = rearrange(logits[:, :-1].contiguous(), 'b t d -> (b t) d')  # 시퀀스의 마지막 예측은 무시한다.
+      labels = b_ids[:, 1:].contiguous().flatten()  # 레이블을 구성하기 위해 첫번째 토큰을 무시한다.
       loss = F.cross_entropy(logits, labels, reduction='mean')
       loss.backward()
       optimizer.step()
@@ -181,7 +180,7 @@ def train(args):
       output = model.generate(encoding['input_ids'], temperature=args.temperature, top_p=args.top_p)
       print(f'{batch[1]}{output[1]}\n\n')
 
-    # TODO: consider a stopping condition to prevent overfitting on the small dataset of sonnets.
+    # TODO: 소넷의 작은 테이터셋에서 과적합을 방지하기 위한 종료 조건을 생각하시오.
     save_model(model, optimizer, args, f'{epoch}_{args.filepath}')
 
 
@@ -195,7 +194,7 @@ def generate_submission_sonnets(args):
   model = model.to(device)
   model.eval()
 
-  # Create the held-out dataset: these only have the first 3 lines. Your job is to fill in the rest!
+  # held-out 데이터셋 만들기: 처음 3 줄만 있다. 나머지를 채우는 것은 여러분 몫이다!
   held_out_sonnet_dataset = SonnetsDataset(args.held_out_sonnet_path)
 
   generated_sonnets = []
@@ -262,7 +261,7 @@ def add_arguments(args):
 
 if __name__ == "__main__":
   args = get_args()
-  args.filepath = f'{args.epochs}-{args.lr}-sonnet.pt'  # Save path.
-  seed_everything(args.seed)  # Fix the seed for reproducibility.
+  args.filepath = f'{args.epochs}-{args.lr}-sonnet.pt'  # 경로명 저장.
+  seed_everything(args.seed)  # 재현성을 위한 random seed 고정.
   train(args)
   generate_submission_sonnets(args)

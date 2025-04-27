@@ -1,14 +1,14 @@
 '''
-Paraphrase detection for GPT starter code.
+Paraphrase detection을 위한 시작 코드.
 
-Consider:
- - ParaphraseGPT: Your implementation of the GPT-2 classification model.
- - train: Training procedure for ParaphraseGPT on the Quora paraphrase detection dataset.
- - test: Test procedure. This function generates the required files for your submission.
+고려 사항:
+ - ParaphraseGPT: 여러분이 구현한 GPT-2 분류 모델 .
+ - train: Quora paraphrase detection 데이터셋에서 ParaphraseGPT를 훈련시키는 절차.
+ - test: Test 절차. 프로젝트 결과 제출에 필요한 파일들을 생성함.
 
-Running:
+실행:
   `python paraphrase_detection.py --use_gpu`
-trains and evaluates your ParaphraseGPT model and writes the required submission files.
+ParaphraseGPT model을 훈련 및 평가하고, 필요한 제출용 파일을 작성한다.
 '''
 
 import argparse
@@ -46,32 +46,30 @@ def seed_everything(seed=11711):
 
 
 class ParaphraseGPT(nn.Module):
-  """Your GPT-2 Model designed for paraphrase detection."""
+  """Paraphrase Detection을 위해 설계된 여러분의 GPT-2 Model."""
 
   def __init__(self, args):
     super().__init__()
     self.gpt = GPT2Model.from_pretrained(model=args.model_size, d=args.d, l=args.l, num_heads=args.num_heads)
-    self.paraphrase_detection_head = nn.Linear(args.d, 2)  # Paraphrase detection has two outputs: 1 (yes) or 0 (no).
+    self.paraphrase_detection_head = nn.Linear(args.d, 2)  # Paraphrase detection 의 출력은 두 가지: 1 (yes) or 0 (no).
 
-    # By default, fine-tune the full model.
+    # 기본적으로, 전체 모델을 finetuning 한다.
     for param in self.gpt.parameters():
       param.requires_grad = True
 
   def forward(self, input_ids, attention_mask):
     """
-    TODO: Predict the label of the token using the paraphrase_detection_head Linear layer.
+    TODO: paraphrase_detection_head Linear layer를 사용하여 토큰의 레이블을 예측하시오.
 
-    We structure the input as:
+    입력은 다음과 같은 구조를 갖는다:
 
       'Is "{s1}" a paraphrase of "{s2}"? Answer "yes" or "no": '
 
-    So you want to find the prediction for the next token at the end of this sentence. Optimistically, it will be the
-    token "yes" (byte pair encoding index of 8505) for examples that are paraphrases or "no" (byte pair encoding index
-     of 3919) for examples that are not paraphrases.
+    따라서, 문장의 끝에서 다음 토큰에 대한 예측을 해야 할 것이다. 
+    훈련이 잘 되었다면, 패러프레이즈인 경우에는 토큰 "yes"(BPE index 8505)가, 
+    패러프레이즈가 아닌 경우에는 토큰 "no" (BPE index 3919)가 될 것이다.
     """
-
-    'Takes a batch of sentences and produces embeddings for them.'
-    ### YOUR CODE HERE
+    ### 완성시켜야 할 빈 코드 블록
     raise NotImplementedError
 
 
@@ -91,9 +89,9 @@ def save_model(model, optimizer, args, filepath):
 
 
 def train(args):
-  """Train GPT-2 for paraphrase detection on the Quora dataset."""
+  """Quora 데이터셋에서 Paraphrase Detection을 위한 GPT-2 훈련."""
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-  # Create the data and its corresponding datasets and dataloader.
+  # 데이터, 해당 데이터셋 및 데이터로드 생성하기.
   para_train_data = load_paraphrase_data(args.para_train)
   para_dev_data = load_paraphrase_data(args.para_dev)
 
@@ -113,19 +111,18 @@ def train(args):
   optimizer = AdamW(model.parameters(), lr=lr, weight_decay=0.)
   best_dev_acc = 0
 
-  # Run for the specified number of epochs.
   for epoch in range(args.epochs):
     model.train()
     train_loss = 0
     num_batches = 0
     for batch in tqdm(para_train_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
-      # Get the input and move it to the gpu (I do not recommend training this model on CPU).
+      # 입력을 가져와서 GPU로 보내기(이 모델을 CPU에서 훈련시키는 것을 권장하지 않는다).
       b_ids, b_mask, labels = batch['token_ids'], batch['attention_mask'], batch['labels'].flatten()
       b_ids = b_ids.to(device)
       b_mask = b_mask.to(device)
       labels = labels.to(device)
 
-      # Compute the loss, gradients, and update the model's parameters.
+      # 손실, 그래디언트를 계산하고 모델 파라미터 업데이트. 
       optimizer.zero_grad()
       logits = model(b_ids, b_mask)
       preds = torch.argmax(logits, dim=1)
@@ -209,7 +206,7 @@ def get_args():
 
 
 def add_arguments(args):
-  """Add arguments that are deterministic on model size."""
+  """모델 크기에 따라 결정되는 인수들을 추가."""
   if args.model_size == 'gpt2':
     args.d = 768
     args.l = 12
@@ -229,7 +226,7 @@ def add_arguments(args):
 
 if __name__ == "__main__":
   args = get_args()
-  args.filepath = f'{args.epochs}-{args.lr}-paraphrase.pt'  # Save path.
-  seed_everything(args.seed)  # Fix the seed for reproducibility.
+  args.filepath = f'{args.epochs}-{args.lr}-paraphrase.pt'  # 경로명 저장.
+  seed_everything(args.seed)  # 재현성을 위한 random seed 고정.
   train(args)
   test(args)

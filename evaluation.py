@@ -1,10 +1,10 @@
 # !/usr/bin/env python3
 
 """
-Evaluation code for Quora paraphrase detection.
+Quora paraphrase detection을 위한 평가.
 
-model_eval_paraphrase is suitable for the dev (and train) dataloaders where the label information is available.
-model_test_paraphrase is suitable for the test dataloader where label information is not available.
+model_eval_paraphrase: 레이블 정보가 있는 dev 및 train dataloader에 적합함.
+model_test_paraphrase: 레이블 정보가 없는 test dataloader에 적합.
 """
 
 import torch
@@ -66,7 +66,7 @@ def test_sonnet(
     test_path='predictions/generated_sonnets.txt',
     gold_path='data/TRUE_sonnets_held_out.txt'
 ):
-    chrf = CHRF()
+    chrf = CHRF()  # Character n-gram F-score
 
     # get the sonnets
     generated_sonnets = [x[1] for x in SonnetsDataset(test_path)]
