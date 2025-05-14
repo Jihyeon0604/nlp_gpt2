@@ -31,8 +31,8 @@ def seed_everything(seed=11711):
   torch.backends.cudnn.benchmark = False
   torch.backends.cudnn.deterministic = True
 
-
-class GPT2SentimentClassifier(torch.nn.Module):
+#GPT-2를 불러와서 감정 분석 태스크에 맞게 분류기(classifier)로 사용하는 클래스
+class GPT2SentimentClassifier(torch.nn.Module): 
   '''
   이 모듈은 GPT-2를 사용하여 클로즈 스타일(빈칸 채우기) 작업으로 감정 분류를 수행한다.
 
@@ -43,7 +43,7 @@ class GPT2SentimentClassifier(torch.nn.Module):
   def __init__(self, config):
     super(GPT2SentimentClassifier, self).__init__()
     self.num_labels = config.num_labels
-    self.gpt = GPT2Model.from_pretrained()
+    self.gpt = GPT2Model.from_pretrained() #기존 학습된 GPT-2 모델 불러옴
 
     # 사전학습 모드에서는 GPT 파라미터들을 업데이트할 필요가가 없다.
     assert config.fine_tune_mode in ["last-linear-layer", "full-model"]
