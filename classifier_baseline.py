@@ -18,6 +18,9 @@ from models.gpt2 import GPT2Model
 from optimizer import AdamW
 from tqdm import tqdm
 
+import torch
+from types import SimpleNamespace
+
 TQDM_DISABLE = False
 
 
@@ -226,6 +229,7 @@ def save_model(model, optimizer, args, config, filepath):
     'numpy_rng': np.random.get_state(),
     'torch_rng': torch.random.get_rng_state(),
   }
+  torch.serialization.add_safe_globals([SimpleNamespace])
 
   torch.save(save_info, filepath)
   print(f"save the model to {filepath}")
@@ -298,7 +302,8 @@ def train(args):
 def test(args):
   with torch.no_grad():
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-    saved = torch.load(args.filepath)
+    torch.serialization.add_safe_globals([SimpleNamespace])
+    saved = torch.load(args.filepath, weights_only=False)
     config = saved['model_config']
     model = GPT2SentimentClassifier(config)
     model.load_state_dict(saved['model'])
