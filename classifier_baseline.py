@@ -293,7 +293,9 @@ def train(args):
       best_dev_acc = dev_acc
       save_model(model, optimizer, args, config, args.filepath)
 
-    print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
+    print(f"Epoch {epoch} | Train Loss: {train_loss/len(train_dataloader):.4f} | "
+      f"Train Acc: {train_acc:.4f} | Train F1: {train_f1:.4f} | "
+      f"Dev Acc: {dev_acc:.4f} | Dev F1: {dev_f1:.4f}")
 
 
 def test(args):
