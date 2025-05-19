@@ -169,7 +169,7 @@ def get_args():
     parser.add_argument("--use_gpu", action='store_true')
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--hidden_dropout_prob", type=float, default=0.3)
-    parser.add_argument("--lr", type=float, default=1e-5)
+    parser.add_argument("--lr", type=float, default=3e-5)
     parser.add_argument("--train", type=str, required=True)
     parser.add_argument("--dev", type=str, required=True)
     parser.add_argument("--test", type=str, required=True)
