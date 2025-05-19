@@ -353,25 +353,14 @@ def get_args():
     return parser.parse_args()
 
 
-
 if __name__ == "__main__":
     args = get_args()
     seed_everything(args.seed)
 
-    config = SimpleNamespace(
-        filepath='sst-classifier_baseline.pt',  # 이미 저장된 pt 파일 사용
-        lr=args.lr,
-        use_gpu=args.use_gpu,
-        epochs=args.epochs,
-        batch_size=args.batch_size,
-        hidden_dropout_prob=args.hidden_dropout_prob,
-        train='data/ids-sst-train.csv',
-        dev='data/ids-sst-dev.csv',
-        test='data/ids-sst-test-student.csv',
-        fine_tune_mode=args.fine_tune_mode,
-        dev_out='predictions/' + args.fine_tune_mode + '-sst-dev-out.csv',
-        test_out='predictions/' + args.fine_tune_mode + '-sst-test-out.csv'
-    )
+    # 학습
+    print('Training Sentiment Classifier on SST...')
+    train(args)
 
+    # 평가
     print('Evaluating on SST...')
-    test(config)
+    test(args)
