@@ -345,6 +345,8 @@ def get_args():
     parser.add_argument("--dev", type=str, default='data/ids-sst-dev.csv')
     parser.add_argument("--test", type=str, default='data/ids-sst-test-student.csv')
     parser.add_argument("--filepath", type=str, default='sst-classifier_baseline.pt')
+    parser.add_argument("--dev_out", type=str, default='predictions/dev_output.csv')
+    parser.add_argument("--test_out", type=str, default='predictions/test_output.csv')
     parser.add_argument("--use_gpu", action='store_true')
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--fine_tune_mode", type=str, choices=["last-linear-layer", "full-model"], default="full-model")
