@@ -76,13 +76,10 @@ def train(args):
     train_dataset = SentimentDataset(train_data, args)
     dev_dataset = SentimentDataset(dev_data, args)
 
-    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batch_size,
-                              collate_fn=train_dataset.collate_fn)
-    dev_loader = DataLoader(dev_dataset, shuffle=False, batch_size=args.batch_size,
-                            collate_fn=dev_dataset.collate_fn)
+    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batch_size, collate_fn=train_dataset.collate_fn)
+    dev_loader = DataLoader(dev_dataset, shuffle=False, batch_size=args.batch_size, collate_fn=dev_dataset.collate_fn)
 
-    config = SimpleNamespace(hidden_dropout_prob=args.hidden_dropout_prob, num_labels=5, hidden_size=768,
-                             fine_tune_mode=args.fine_tune_mode)
+    config = SimpleNamespace(hidden_dropout_prob=args.hidden_dropout_prob, num_labels=5, hidden_size=768, fine_tune_mode=args.fine_tune_mode)
     model = GPT2SentimentClassifier(config).to(device)
 
     total_steps = len(train_loader) * args.epochs
@@ -91,7 +88,7 @@ def train(args):
 
     best_dev_acc = 0
     for epoch in range(args.epochs):
-        gradual_unfreeze(model, epoch, args.epochs)  # ✅ Gradual Unfreezing
+        gradual_unfreeze(model, epoch, args.epochs)
         model.train()
         total_loss = 0
         for batch in tqdm(train_loader, desc=f'Training Epoch {epoch}', disable=TQDM_DISABLE):
@@ -104,7 +101,7 @@ def train(args):
             loss = F.cross_entropy(logits, b_labels)
             loss.backward()
             optimizer.step()
-            scheduler.step()  # ✅ Scheduler step
+            scheduler.step()
             total_loss += loss.item()
 
         dev_acc, dev_f1 = model_eval(dev_loader, model, device)
@@ -129,4 +126,9 @@ if __name__ == "__main__":
     args.train = "data/ids-sst-train.csv"
     args.dev = "data/ids-sst-dev.csv"
     args.save_model_path = "gpt2_sentiment_sst.pt"
+    train(args)
+
+    args.train = "data/ids-imdb-train.csv" 
+    args.dev = "data/ids-imdb-dev.csv"
+    args.save_model_path = "gpt2_sentiment_imdb.pt"
     train(args)
