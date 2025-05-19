@@ -349,7 +349,6 @@ if __name__ == "__main__":
     args = get_args()
     seed_everything(args.seed)
 
-    print('Training Sentiment Classifier on SST...')
     config = SimpleNamespace(
         filepath='sst-classifier.pt',
         lr=args.lr,
@@ -365,6 +364,12 @@ if __name__ == "__main__":
         test_out='predictions/' + args.fine_tune_mode + '-sst-test-out.csv'
     )
 
-    train(config)
-    print('Evaluating on SST...')
-    test(config)
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == 'test_only':
+        print('Running Test Only...')
+        test(config)
+    else:
+        print('Training Sentiment Classifier on SST...')
+        train(config)
+        print('Evaluating on SST...')
+        test(config)
