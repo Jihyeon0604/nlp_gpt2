@@ -34,11 +34,15 @@ class GPT2SentimentClassifier(torch.nn.Module):
             param.requires_grad = False
         self.classifier = torch.nn.Linear(self.hidden_size, self.num_labels)
 
-    def unfreeze_layers(self, layer_count):
-        layers = list(self.gpt.transformer.h.children())
-        for l in layers[-layer_count:]:
-            for param in l.parameters():
-                param.requires_grad = True
+    def unfreeze_layers(self, current_epoch):
+        total_layers = len(list(self.gpt.children()))
+        layers_to_unfreeze = min(current_epoch, total_layers)
+        # 자식 모듈 순서대로 unfreeze
+        for idx, (name, child) in enumerate(self.gpt.named_children()):
+            requires_grad = idx < layers_to_unfreeze
+            for param in child.parameters():
+                param.requires_grad = requires_grad
+
 
     def forward(self, input_ids, attention_mask):
         outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
