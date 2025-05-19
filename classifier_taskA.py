@@ -2,13 +2,11 @@
 
 import random, numpy as np, argparse, csv
 from types import SimpleNamespace
-
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from transformers import GPT2Tokenizer, get_scheduler
 from sklearn.metrics import f1_score, accuracy_score
-
 from models.gpt2 import GPT2Model
 from optimizer import AdamW
 from tqdm import tqdm
@@ -21,34 +19,37 @@ def seed_everything(seed=11711):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
 
 class GPT2SentimentClassifier(torch.nn.Module):
     def __init__(self, config):
-        super().__init__()
+        super(GPT2SentimentClassifier, self).__init__()
         self.num_labels = config.num_labels
         self.gpt = GPT2Model.from_pretrained()
         self.hidden_size = config.hidden_size
-
-        for param in self.gpt.parameters():
-            param.requires_grad = False
         self.classifier = torch.nn.Linear(self.hidden_size, self.num_labels)
+        self.dropout = torch.nn.Dropout(config.hidden_dropout_prob)
+        self.fine_tune_mode = config.fine_tune_mode
+        self.freeze_layers()
 
-    def unfreeze_layers(self, current_epoch):
-        total_layers = len(list(self.gpt.children()))
-        layers_to_unfreeze = min(current_epoch, total_layers)
-        # 자식 모듈 순서대로 unfreeze
-        for idx, (name, child) in enumerate(self.gpt.named_children()):
-            requires_grad = idx < layers_to_unfreeze
-            for param in child.parameters():
-                param.requires_grad = requires_grad
+    def freeze_layers(self):
+        for param in self.gpt.parameters():
+            param.requires_grad = (self.fine_tune_mode == 'full-model')
 
+    def gradual_unfreeze(self, current_epoch, total_epochs):
+        layers = list(self.gpt.children())
+        num_layers = len(layers)
+        unfreeze_step = total_epochs // num_layers
+        for i, layer in enumerate(layers):
+            if current_epoch >= i * unfreeze_step:
+                for param in layer.parameters():
+                    param.requires_grad = True
 
     def forward(self, input_ids, attention_mask):
         outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
         hidden_states = outputs['last_hidden_state']
         last_hidden = hidden_states[:, -1, :]
-        logits = self.classifier(last_hidden)
+        pooled_output = self.dropout(last_hidden)
+        logits = self.classifier(pooled_output)
         return logits
 
 def load_data(filename, flag='train'):
@@ -61,40 +62,41 @@ def load_data(filename, flag='train'):
                 data.append((sent, sent_id))
             else:
                 label = int(record['sentiment'].strip())
-                num_labels.setdefault(label, len(num_labels))
+                if label not in num_labels:
+                    num_labels[label] = len(num_labels)
                 data.append((sent, label, sent_id))
     return (data, len(num_labels)) if flag == 'train' else data
 
 class SentimentDataset(Dataset):
-    def __init__(self, dataset, args):
+    def __init__(self, dataset):
         self.dataset = dataset
         self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
         self.tokenizer.pad_token = self.tokenizer.eos_token
 
-    def __len__(self): return len(self.dataset)
-    def __getitem__(self, idx): return self.dataset[idx]
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        return self.dataset[idx]
 
     def pad_data(self, data):
         sents = [x[0] for x in data]
         labels = [x[1] for x in data] if len(data[0]) == 3 else None
-        sent_ids = [x[-1] for x in data]
         encoding = self.tokenizer(sents, return_tensors='pt', padding=True, truncation=True)
-        return encoding['input_ids'], encoding['attention_mask'], labels, sents, sent_ids
+        return encoding['input_ids'], encoding['attention_mask'], labels
 
     def collate_fn(self, batch):
-        token_ids, attention_mask, labels, sents, sent_ids = self.pad_data(batch)
+        token_ids, attention_mask, labels = self.pad_data(batch)
         return {
             'token_ids': token_ids,
             'attention_mask': attention_mask,
-            'labels': torch.LongTensor(labels) if labels else None,
-            'sents': sents,
-            'sent_ids': sent_ids
+            'labels': torch.LongTensor(labels) if labels is not None else None
         }
 
 def model_eval(dataloader, model, device):
     model.eval()
     y_true, y_pred = [], []
-    for batch in tqdm(dataloader, desc='eval', disable=TQDM_DISABLE):
+    for batch in dataloader:
         b_ids = batch['token_ids'].to(device)
         b_mask = batch['attention_mask'].to(device)
         logits = model(b_ids, b_mask).detach().cpu().numpy()
@@ -104,33 +106,32 @@ def model_eval(dataloader, model, device):
             y_true.extend(batch['labels'].flatten())
     return accuracy_score(y_true, y_pred), f1_score(y_true, y_pred, average='macro')
 
-def save_model(model, optimizer, args, config, filepath):
-    torch.save({
-        'model': model.state_dict(),
-        'optim': optimizer.state_dict(),
-        'args': args,
-        'model_config': config,
-    }, filepath)
-
 def train(args):
-    device = torch.device('cuda' if args.use_gpu else 'cpu')
+    device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
     train_data, num_labels = load_data(args.train, 'train')
     dev_data = load_data(args.dev, 'valid')
 
-    train_dataset = SentimentDataset(train_data, args)
-    dev_dataset = SentimentDataset(dev_data, args)
+    train_dataset = SentimentDataset(train_data)
+    dev_dataset = SentimentDataset(dev_data)
+
     train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batch_size, collate_fn=train_dataset.collate_fn)
     dev_loader = DataLoader(dev_dataset, shuffle=False, batch_size=args.batch_size, collate_fn=dev_dataset.collate_fn)
 
-    config = SimpleNamespace(hidden_dropout_prob=args.hidden_dropout_prob, num_labels=num_labels,
-                             hidden_size=768, data_dir='.', fine_tune_mode=args.fine_tune_mode)
+    config = SimpleNamespace(
+        hidden_dropout_prob=args.hidden_dropout_prob,
+        num_labels=num_labels,
+        hidden_size=768,
+        fine_tune_mode=args.fine_tune_mode
+    )
+
     model = GPT2SentimentClassifier(config).to(device)
 
     lr = args.lr
-    optimizer = AdamW([
-        {'params': [p for n, p in model.named_parameters() if "gpt" in n], 'lr': lr * 0.5},
-        {'params': [p for n, p in model.named_parameters() if "classifier" in n], 'lr': lr}
-    ])
+    param_groups = [
+        {"params": [p for n, p in model.named_parameters() if "gpt" in n], "lr": lr * 0.5},
+        {"params": [p for n, p in model.named_parameters() if "classifier" in n], "lr": lr}
+    ]
+    optimizer = AdamW(param_groups)
 
     total_steps = len(train_loader) * args.epochs
     scheduler = get_scheduler("linear", optimizer, num_warmup_steps=int(0.1 * total_steps), num_training_steps=total_steps)
@@ -138,63 +139,44 @@ def train(args):
     best_dev_acc = 0
     for epoch in range(args.epochs):
         model.train()
+        model.gradual_unfreeze(epoch, args.epochs)
         train_loss = 0
-        model.unfreeze_layers(epoch + 1)  # Gradual Unfreezing
-
         for batch in tqdm(train_loader, desc=f"Epoch {epoch}"):
-            b_ids, b_mask = batch['token_ids'].to(device), batch['attention_mask'].to(device)
+            b_ids = batch['token_ids'].to(device)
+            b_mask = batch['attention_mask'].to(device)
             b_labels = batch['labels'].to(device)
-
             optimizer.zero_grad()
             logits = model(b_ids, b_mask)
             loss = F.cross_entropy(logits, b_labels.view(-1))
             loss.backward()
             optimizer.step()
             scheduler.step()
-
             train_loss += loss.item()
 
         train_acc, _ = model_eval(train_loader, model, device)
         dev_acc, dev_f1 = model_eval(dev_loader, model, device)
-
         if dev_acc > best_dev_acc:
             best_dev_acc = dev_acc
-            save_model(model, optimizer, args, config, args.filepath)
+            torch.save(model.state_dict(), args.filepath)
 
-        print(f"Epoch {epoch} | Train Loss: {train_loss / len(train_loader):.4f} | Train Acc: {train_acc:.4f} | Dev Acc: {dev_acc:.4f}")
-
-def test(args):
-    device = torch.device('cuda' if args.use_gpu else 'cpu')
-    saved = torch.load(args.filepath)
-    config = saved['model_config']
-    model = GPT2SentimentClassifier(config)
-    model.load_state_dict(saved['model'])
-    model = model.to(device)
-
-    test_data = load_data(args.test, 'test')
-    test_dataset = SentimentDataset(test_data, args)
-    test_loader = DataLoader(test_dataset, shuffle=False, batch_size=args.batch_size, collate_fn=test_dataset.collate_fn)
-
-    test_acc, test_f1 = model_eval(test_loader, model, device)
-    print(f"Test Accuracy: {test_acc:.4f}, Test F1: {test_f1:.4f}")
+        print(f"Epoch {epoch} | Train Loss: {train_loss/len(train_loader):.4f} | Train Acc: {train_acc:.4f} | Dev Acc: {dev_acc:.4f} | Dev F1: {dev_f1:.4f}")
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=11711)
     parser.add_argument("--epochs", type=int, default=6)
-    parser.add_argument("--fine_tune_mode", type=str, choices=["last-linear-layer", "full-model"], default="full-model")
+    parser.add_argument("--fine_tune_mode", type=str, choices=["last-linear-layer", "full-model"], default="last-linear-layer")
     parser.add_argument("--use_gpu", action='store_true')
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--hidden_dropout_prob", type=float, default=0.3)
-    parser.add_argument("--lr", type=float, default=1e-5)  # ✔️ 낮춰서 안정화
-    parser.add_argument("--train", type=str, default='data/ids-sst-train.csv')
-    parser.add_argument("--dev", type=str, default='data/ids-sst-dev.csv')
-    parser.add_argument("--test", type=str, default='data/ids-sst-test-student.csv')
-    parser.add_argument("--filepath", type=str, default='sst-classifier-taskA.pt')
+    parser.add_argument("--lr", type=float, default=1e-5)
+    parser.add_argument("--train", type=str, required=True)
+    parser.add_argument("--dev", type=str, required=True)
+    parser.add_argument("--test", type=str, required=True)
+    parser.add_argument("--filepath", type=str, required=True)
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = get_args()
     seed_everything(args.seed)
     train(args)
-    test(args)
