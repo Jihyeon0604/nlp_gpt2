@@ -36,12 +36,12 @@ class GPT2SentimentClassifier(torch.nn.Module):
             param.requires_grad = (self.fine_tune_mode == 'full-model')
 
     def gradual_unfreeze(self, current_epoch, total_epochs):
-        layers = list(self.gpt.children())
-        num_layers = len(layers)
-        unfreeze_step = total_epochs // num_layers
-        for i, layer in enumerate(layers):
-            if current_epoch >= i * unfreeze_step:
-                for param in layer.parameters():
+        if hasattr(self.gpt, 'transformer'):
+            layers = self.gpt.transformer.h
+            num_layers = len(layers)
+            layers_to_unfreeze = (current_epoch + 1) * num_layers // total_epochs
+            for i in range(layers_to_unfreeze):
+                for param in layers[i].parameters():
                     param.requires_grad = True
 
     def forward(self, input_ids, attention_mask):
@@ -106,6 +106,11 @@ def model_eval(dataloader, model, device):
             y_true.extend(batch['labels'].flatten())
     return accuracy_score(y_true, y_pred), f1_score(y_true, y_pred, average='macro')
 
+def slanted_triangular_lr(step, total_steps, max_lr, cut_frac=0.1, ratio=32):
+    cut = int(total_steps * cut_frac)
+    p = step / cut if step < cut else 1 - (step - cut) / (total_steps - cut)
+    return max_lr * (1 + p * (ratio - 1)) / ratio
+
 def train(args):
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
     train_data, num_labels = load_data(args.train, 'train')
@@ -126,17 +131,10 @@ def train(args):
 
     model = GPT2SentimentClassifier(config).to(device)
 
-    lr = args.lr
-    param_groups = [
-        {"params": [p for n, p in model.named_parameters() if "gpt" in n], "lr": lr * 0.5},
-        {"params": [p for n, p in model.named_parameters() if "classifier" in n], "lr": lr}
-    ]
-    optimizer = AdamW(param_groups)
-
     total_steps = len(train_loader) * args.epochs
-    scheduler = get_scheduler("linear", optimizer, num_warmup_steps=int(0.1 * total_steps), num_training_steps=total_steps)
-
     best_dev_acc = 0
+    global_step = 0
+
     for epoch in range(args.epochs):
         model.train()
         model.gradual_unfreeze(epoch, args.epochs)
@@ -145,13 +143,18 @@ def train(args):
             b_ids = batch['token_ids'].to(device)
             b_mask = batch['attention_mask'].to(device)
             b_labels = batch['labels'].to(device)
+
+            lr = slanted_triangular_lr(global_step, total_steps, args.lr)
+            optimizer = AdamW(model.parameters(), lr=lr)
+
             optimizer.zero_grad()
             logits = model(b_ids, b_mask)
             loss = F.cross_entropy(logits, b_labels.view(-1))
             loss.backward()
             optimizer.step()
-            scheduler.step()
+
             train_loss += loss.item()
+            global_step += 1
 
         train_acc, _ = model_eval(train_loader, model, device)
         dev_acc, dev_f1 = model_eval(dev_loader, model, device)
@@ -164,10 +167,10 @@ def train(args):
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=11711)
-    parser.add_argument("--epochs", type=int, default=6)
-    parser.add_argument("--fine_tune_mode", type=str, choices=["last-linear-layer", "full-model"], default="last-linear-layer")
+    parser.add_argument("--epochs", type=int, default=8)
+    parser.add_argument("--fine_tune_mode", type=str, choices=["last-linear-layer", "full-model"], default="full-model")
     parser.add_argument("--use_gpu", action='store_true')
-    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--hidden_dropout_prob", type=float, default=0.3)
     parser.add_argument("--lr", type=float, default=3e-5)
     parser.add_argument("--train", type=str, required=True)
