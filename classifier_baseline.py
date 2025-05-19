@@ -337,6 +337,7 @@ def test(args):
 
 def get_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=11711)
     parser.add_argument("--train", type=str, default='data/ids-sst-train.csv')
     parser.add_argument("--dev", type=str, default='data/ids-sst-dev.csv')
     parser.add_argument("--test", type=str, default='data/ids-sst-test-student.csv')
