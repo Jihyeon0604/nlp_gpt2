@@ -339,8 +339,13 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--train", type=str, default='data/ids-sst-train.csv')
     parser.add_argument("--dev", type=str, default='data/ids-sst-dev.csv')
-    parser.add_argument("--test", type=str, default='data/ids-sst-test.csv')
-    parser.add_argument("--filepath", type=str, default='sst-classifier-taskA.pt')
+    parser.add_argument("--test", type=str, default='data/ids-sst-test-student.csv')
+    parser.add_argument("--filepath", type=str, default='sst-classifier_baseline.pt')
+    parser.add_argument("--use_gpu", action='store_true')
+    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--fine_tune_mode", type=str, choices=["last-linear-layer", "full-model"], default="full-model")
+    parser.add_argument("--epochs", type=int, default=6) 
+    parser.add_argument("--lr", type=float, default=2e-5)  
     return parser.parse_args()
 
 
