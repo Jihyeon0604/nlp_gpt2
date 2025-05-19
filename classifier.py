@@ -43,7 +43,6 @@ class GPT2SentimentClassifier(torch.nn.Module):
 class SentimentDataset(Dataset):
     def __init__(self, dataset, args):
         self.dataset = dataset
-        self.p = args
         self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
         self.tokenizer.pad_token = self.tokenizer.eos_token
 
@@ -148,14 +147,8 @@ if __name__ == "__main__":
     args = get_args()
     seed_everything()
 
-    # ✅ SST-5 학습
+    # ✅ SST-5 학습만 실행
     args.train = "data/ids-sst-train.csv"
     args.dev = "data/ids-sst-dev.csv"
     args.save_model_path = "gpt2_sentiment_sst.pt"
-    train(args)
-
-    # ✅ IMDB 학습
-    args.train = "data/ids-imdb-train.csv"
-    args.dev = "data/ids-imdb-dev.csv"
-    args.save_model_path = "gpt2_sentiment_imdb.pt"
     train(args)
