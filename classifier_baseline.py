@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-'''
-SST 과 CFIMDB 위에서 GPT2SentimentClassifier를 훈련하고 평가.
-'''
 
 import random, numpy as np, argparse
 from types import SimpleNamespace
@@ -340,68 +337,34 @@ def test(args):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", type=int, default=11711)
-    parser.add_argument("--epochs", type=int, default=10)
-    parser.add_argument("--fine_tune_mode", type=str, 
-                        help='last-linear-layer: the GPT parameters are frozen and the task specific head parameters are updated; full-model: GPT parameters are updated as well', 
-                        choices=('last-linear-layer', 'full-model'), 
-                        default="last-linear-layer")
-    parser.add_argument("--use_gpu", action='store_true')
-    parser.add_argument("--batch_size", type=int, default=8, help='sst: 64, cfimdb: 8 can fit a 12GB GPU')
-    parser.add_argument("--hidden_dropout_prob", type=float, default=0.3)
-    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate, default lr for 'pretrain': 1e-3, 'finetune': 1e-5")
-    
-    parser.add_argument("--train", type=str, required=True)
-    parser.add_argument("--dev", type=str, required=True)
-    parser.add_argument("--test", type=str, required=True)
-    parser.add_argument("--filepath", type=str, required=True)
-
+    parser.add_argument("--train", type=str, default='data/ids-sst-train.csv')
+    parser.add_argument("--dev", type=str, default='data/ids-sst-dev.csv')
+    parser.add_argument("--test", type=str, default='data/ids-sst-test.csv')
+    parser.add_argument("--filepath", type=str, default='sst-classifier-taskA.pt')
     return parser.parse_args()
 
 
 
 if __name__ == "__main__":
-  args = get_args()
-  seed_everything(args.seed)
+    args = get_args()
+    seed_everything(args.seed)
 
-  print('Training Sentiment Classifier on SST...')
-  config = SimpleNamespace(
-    filepath='sst-classifier.pt',
-    lr=args.lr,
-    use_gpu=args.use_gpu,
-    epochs=args.epochs,
-    batch_size=args.batch_size,
-    hidden_dropout_prob=args.hidden_dropout_prob,
-    train='data/ids-sst-train.csv',
-    dev='data/ids-sst-dev.csv',
-    test='data/ids-sst-test-student.csv',
-    fine_tune_mode=args.fine_tune_mode,
-    dev_out='predictions/' + args.fine_tune_mode + '-sst-dev-out.csv',
-    test_out='predictions/' + args.fine_tune_mode + '-sst-test-out.csv'
-  )
+    print('Training Sentiment Classifier on SST...')
+    config = SimpleNamespace(
+        filepath='sst-classifier.pt',
+        lr=args.lr,
+        use_gpu=args.use_gpu,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        hidden_dropout_prob=args.hidden_dropout_prob,
+        train='data/ids-sst-train.csv',
+        dev='data/ids-sst-dev.csv',
+        test='data/ids-sst-test-student.csv',
+        fine_tune_mode=args.fine_tune_mode,
+        dev_out='predictions/' + args.fine_tune_mode + '-sst-dev-out.csv',
+        test_out='predictions/' + args.fine_tune_mode + '-sst-test-out.csv'
+    )
 
-  train(config)
-
-  print('Evaluating on SST...')
-  test(config)
-
-  print('Training Sentiment Classifier on cfimdb...')
-  config = SimpleNamespace(
-    filepath='cfimdb-classifier.pt',
-    lr=args.lr,
-    use_gpu=args.use_gpu,
-    epochs=args.epochs,
-    batch_size=8,
-    hidden_dropout_prob=args.hidden_dropout_prob,
-    train='data/ids-cfimdb-train.csv',
-    dev='data/ids-cfimdb-dev.csv',
-    test='data/ids-cfimdb-test-student.csv',
-    fine_tune_mode=args.fine_tune_mode,
-    dev_out='predictions/' + args.fine_tune_mode + '-cfimdb-dev-out.csv',
-    test_out='predictions/' + args.fine_tune_mode + '-cfimdb-test-out.csv'
-  )
-
-  train(config)
-
-  print('Evaluating on cfimdb...')
-  test(config)
+    train(config)
+    print('Evaluating on SST...')
+    test(config)

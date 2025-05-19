@@ -38,7 +38,7 @@ class GPT2SentimentClassifier(torch.nn.Module):
 
     def forward(self, input_ids, attention_mask):
         outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
-        hidden_states = outputs.last_hidden_state
+        hidden_states = outputs['last_hidden_state']
         last_hidden = hidden_states[:, -1, :]
         logits = self.classifier(last_hidden)
         return logits
