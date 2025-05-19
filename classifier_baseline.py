@@ -350,7 +350,7 @@ if __name__ == "__main__":
     seed_everything(args.seed)
 
     config = SimpleNamespace(
-        filepath='sst-classifier.pt',
+        filepath='sst-classifier_baseline.pt',  # 이미 저장된 pt 파일 사용
         lr=args.lr,
         use_gpu=args.use_gpu,
         epochs=args.epochs,
@@ -364,12 +364,5 @@ if __name__ == "__main__":
         test_out='predictions/' + args.fine_tune_mode + '-sst-test-out.csv'
     )
 
-    import sys
-    if len(sys.argv) > 1 and sys.argv[1] == 'test_only':
-        print('Running Test Only...')
-        test(config)
-    else:
-        print('Training Sentiment Classifier on SST...')
-        train(config)
-        print('Evaluating on SST...')
-        test(config)
+    print('Evaluating on SST...')
+    test(config)
