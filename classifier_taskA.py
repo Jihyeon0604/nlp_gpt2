@@ -34,6 +34,9 @@ class GPT2SentimentClassifier(torch.nn.Module):
     def freeze_layers(self):
         for param in self.gpt.parameters():
             param.requires_grad = (self.fine_tune_mode == 'full-model')
+        if self.fine_tune_mode == 'last-linear-layer':
+            for param in self.gpt.parameters():
+                param.requires_grad = False
 
     def gradual_unfreeze(self, current_epoch, total_epochs):
         if hasattr(self.gpt, 'transformer'):
@@ -108,8 +111,18 @@ def model_eval(dataloader, model, device):
 
 def slanted_triangular_lr(step, total_steps, max_lr, cut_frac=0.1, ratio=32):
     cut = int(total_steps * cut_frac)
-    p = step / cut if step < cut else 1 - (step - cut) / (total_steps - cut)
+    if step < cut:
+        p = step / cut
+    else:
+        p = 1 - (step - cut) / (total_steps - cut)
     return max_lr * (1 + p * (ratio - 1)) / ratio
+
+def build_discriminative_optimizer(model, lr):
+    grouped = []
+    for i, layer in enumerate(model.gpt.transformer.h):
+        grouped.append({'params': layer.parameters(), 'lr': lr / (2.6 ** (11 - i))})
+    grouped.append({'params': model.classifier.parameters(), 'lr': lr})
+    return AdamW(grouped)
 
 def train(args):
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
@@ -135,6 +148,8 @@ def train(args):
     best_dev_acc = 0
     global_step = 0
 
+    optimizer = build_discriminative_optimizer(model, args.lr)
+
     for epoch in range(args.epochs):
         model.train()
         model.gradual_unfreeze(epoch, args.epochs)
@@ -145,7 +160,8 @@ def train(args):
             b_labels = batch['labels'].to(device)
 
             lr = slanted_triangular_lr(global_step, total_steps, args.lr)
-            optimizer = AdamW(model.parameters(), lr=lr)
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
 
             optimizer.zero_grad()
             logits = model(b_ids, b_mask)
@@ -168,7 +184,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=11711)
     parser.add_argument("--epochs", type=int, default=8)
-    parser.add_argument("--fine_tune_mode", type=str, choices=["last-linear-layer", "full-model"], default="full-model")
+    parser.add_argument("--fine_tune_mode", type=str, choices=["last-linear-layer", "full-model"], default="last-linear-layer")
     parser.add_argument("--use_gpu", action='store_true')
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--hidden_dropout_prob", type=float, default=0.3)
