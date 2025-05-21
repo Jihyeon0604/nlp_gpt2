@@ -39,8 +39,8 @@ class GPT2SentimentClassifier(torch.nn.Module):
                 param.requires_grad = False
 
     def gradual_unfreeze(self, current_epoch, total_epochs):
-        if hasattr(self.gpt, 'transformer'):
-            layers = self.gpt.transformer.h
+        if hasattr(self.gpt, 'h'):
+            layers = self.gpt.h
             num_layers = len(layers)
             layers_to_unfreeze = (current_epoch + 1) * num_layers // total_epochs
             for i in range(layers_to_unfreeze):
@@ -119,7 +119,7 @@ def slanted_triangular_lr(step, total_steps, max_lr, cut_frac=0.1, ratio=32):
 
 def build_discriminative_optimizer(model, lr):
     grouped = []
-    for i, layer in enumerate(model.gpt.transformer.h):
+    for i, layer in enumerate(model.gpt.h):
         grouped.append({'params': layer.parameters(), 'lr': lr / (2.6 ** (11 - i))})
     grouped.append({'params': model.classifier.parameters(), 'lr': lr})
     return AdamW(grouped)
