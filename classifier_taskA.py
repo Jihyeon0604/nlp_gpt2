@@ -143,6 +143,9 @@ def train(args):
     )
 
     model = GPT2SentimentClassifier(config).to(device)
+    print("📌 model.gpt type:", type(model.gpt))
+    print("📌 has .h:", hasattr(model.gpt, "h"))
+
 
     total_steps = len(train_loader) * args.epochs
     best_dev_acc = 0
