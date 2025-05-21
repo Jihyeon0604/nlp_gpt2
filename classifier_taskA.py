@@ -143,6 +143,11 @@ def train(args):
     best_dev_acc = 0
     global_step = 0
     optimizer = build_discriminative_optimizer(model, args.lr)
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            print("✅ TRAINING:", name)
+        else:
+            print("❌ FROZEN:", name)
 
     for epoch in range(args.epochs):
         model.train()
