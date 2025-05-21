@@ -42,20 +42,21 @@ class ParaphraseGPT(nn.Module):
       param.requires_grad = True
 
   def forward(self, input_ids, attention_mask):
-    # GPT-2의 출력 hidden states 얻기 (마지막 레이어)
-    hidden_states = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
-    
-    # 각 문장의 마지막 유효 토큰 위치 얻기
-    # attention_mask가 1인 마지막 위치를 구함
-    last_token_indices = attention_mask.sum(dim=1) - 1  # 각 문장의 실제 길이 - 1
+    # GPT-2 출력 (dict 타입으로 반환됨)
+    outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
 
-    # 각 문장의 마지막 토큰에 해당하는 hidden state 추출
-    last_hidden = hidden_states[torch.arange(hidden_states.size(0)), last_token_indices]
+    # 실제 마지막 hidden state 텐서만 가져오기
+    sequence_output = outputs['last_hidden_state']
 
-    # 이 hidden state를 classification head에 통과시켜 yes/no 확률로 변환
+    # 각 문장의 마지막 토큰 인덱스 계산
+    last_token_indices = attention_mask.sum(dim=1) - 1
+
+    # 마지막 토큰 위치의 hidden state 추출
+    last_hidden = sequence_output[torch.arange(sequence_output.size(0)), last_token_indices]
+
+    # classification head로 전달
     logits = self.paraphrase_detection_head(last_hidden)
     return logits
-
 
 def save_model(model, optimizer, args, filepath):
   save_info = {
