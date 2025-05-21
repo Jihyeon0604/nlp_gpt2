@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-from transformers import GPT2Tokenizer, get_scheduler
+from transformers import GPT2Tokenizer
 from sklearn.metrics import f1_score, accuracy_score
 from models.gpt2 import GPT2Model
 from optimizer import AdamW
@@ -22,7 +22,7 @@ def seed_everything(seed=11711):
 
 class GPT2SentimentClassifier(torch.nn.Module):
     def __init__(self, config):
-        super(GPT2SentimentClassifier, self).__init__()
+        super().__init__()
         self.num_labels = config.num_labels
         self.gpt = GPT2Model.from_pretrained()
         self.hidden_size = config.hidden_size
@@ -39,19 +39,17 @@ class GPT2SentimentClassifier(torch.nn.Module):
                 param.requires_grad = False
 
     def gradual_unfreeze(self, current_epoch, total_epochs):
-        if hasattr(self.gpt, 'h'):
-            layers = self.gpt.h
-            num_layers = len(layers)
-            layers_to_unfreeze = (current_epoch + 1) * num_layers // total_epochs
-            for i in range(layers_to_unfreeze):
-                for param in layers[i].parameters():
-                    param.requires_grad = True
+        layers = self.gpt.gpt_layers
+        num_layers = len(layers)
+        layers_to_unfreeze = (current_epoch + 1) * num_layers // total_epochs
+        for i in range(layers_to_unfreeze):
+            for param in layers[i].parameters():
+                param.requires_grad = True
 
     def forward(self, input_ids, attention_mask):
         outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
-        hidden_states = outputs['last_hidden_state']
-        last_hidden = hidden_states[:, -1, :]
-        pooled_output = self.dropout(last_hidden)
+        last_token = outputs['last_token']
+        pooled_output = self.dropout(last_token)
         logits = self.classifier(pooled_output)
         return logits
 
@@ -111,15 +109,13 @@ def model_eval(dataloader, model, device):
 
 def slanted_triangular_lr(step, total_steps, max_lr, cut_frac=0.1, ratio=32):
     cut = int(total_steps * cut_frac)
-    if step < cut:
-        p = step / cut
-    else:
-        p = 1 - (step - cut) / (total_steps - cut)
+    p = step / cut if step < cut else 1 - (step - cut) / (total_steps - cut)
     return max_lr * (1 + p * (ratio - 1)) / ratio
 
 def build_discriminative_optimizer(model, lr):
+    layers = model.gpt.gpt_layers
     grouped = []
-    for i, layer in enumerate(model.gpt.h):
+    for i, layer in enumerate(layers):
         grouped.append({'params': layer.parameters(), 'lr': lr / (2.6 ** (11 - i))})
     grouped.append({'params': model.classifier.parameters(), 'lr': lr})
     return AdamW(grouped)
@@ -143,14 +139,9 @@ def train(args):
     )
 
     model = GPT2SentimentClassifier(config).to(device)
-    print("📌 model.gpt type:", type(model.gpt))
-    print("📌 has .h:", hasattr(model.gpt, "h"))
-
-
     total_steps = len(train_loader) * args.epochs
     best_dev_acc = 0
     global_step = 0
-
     optimizer = build_discriminative_optimizer(model, args.lr)
 
     for epoch in range(args.epochs):
@@ -175,23 +166,23 @@ def train(args):
             train_loss += loss.item()
             global_step += 1
 
-        train_acc, _ = model_eval(train_loader, model, device)
+        train_acc, train_f1 = model_eval(train_loader, model, device)
         dev_acc, dev_f1 = model_eval(dev_loader, model, device)
         if dev_acc > best_dev_acc:
             best_dev_acc = dev_acc
             torch.save(model.state_dict(), args.filepath)
 
-        print(f"Epoch {epoch} | Train Loss: {train_loss/len(train_loader):.4f} | Train Acc: {train_acc:.4f} | Dev Acc: {dev_acc:.4f} | Dev F1: {dev_f1:.4f}")
+        print(f"Epoch {epoch} | Train Loss: {train_loss/len(train_loader):.4f} | Train Acc: {train_acc:.4f} | Train F1: {train_f1:.4f} | Dev Acc: {dev_acc:.4f} | Dev F1: {dev_f1:.4f}")
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=11711)
-    parser.add_argument("--epochs", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=6)
     parser.add_argument("--fine_tune_mode", type=str, choices=["last-linear-layer", "full-model"], default="last-linear-layer")
     parser.add_argument("--use_gpu", action='store_true')
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--hidden_dropout_prob", type=float, default=0.3)
-    parser.add_argument("--lr", type=float, default=3e-5)
+    parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--train", type=str, required=True)
     parser.add_argument("--dev", type=str, required=True)
     parser.add_argument("--test", type=str, required=True)
