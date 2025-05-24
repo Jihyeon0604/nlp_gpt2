@@ -17,6 +17,10 @@ from evaluation import model_eval_paraphrase, model_test_paraphrase
 from models.gpt2 import GPT2Model
 from optimizer import AdamW
 
+# safe_globals로 Namespace 허용
+from torch.serialization import safe_globals
+from argparse import Namespace
+
 TQDM_DISABLE = False
 
 def seed_everything(seed=11711):
@@ -120,7 +124,10 @@ def train(args):
 @torch.no_grad()
 def test(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-  saved = torch.load(args.filepath)
+  # saved = torch.load(args.filepath)
+  # safe_globals로 Namespace 허용
+  with safe_globals([Namespace]):
+    saved = torch.load(args.filepath)
 
   model = ParaphraseGPT(saved['args']).to(device)
   model.load_state_dict(saved['model'])
