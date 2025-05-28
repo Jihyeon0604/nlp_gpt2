@@ -300,16 +300,19 @@ def train(args):
 
 
 def test(args):
-  import torch.serialization
-  import numpy.core.multiarray as multiarray
   from types import SimpleNamespace
+  import torch.serialization
+  import numpy as np
+  import numpy.core.multiarray as multiarray
 
   torch.serialization.add_safe_globals([SimpleNamespace])
   torch.serialization.add_safe_globals([multiarray._reconstruct])
+  torch.serialization.add_safe_globals([np.ndarray])
+
   
   with torch.no_grad():
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-    saved = torch.load(args.filepath)
+    saved = torch.load(args.filepath, weights_only=False)
     config = saved['model_config']
     model = GPT2SentimentClassifier(config)
     model.load_state_dict(saved['model'])
