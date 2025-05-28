@@ -296,7 +296,7 @@ def train(args):
       best_dev_acc = dev_acc
       save_model(model, optimizer, args, config, args.filepath)
 
-    print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
+    print(f"Epoch {epoch}: train loss :: {train_loss:.3f}, train acc :: {train_acc:.3f}, train F1 :: {train_f1:.3f}, dev acc :: {dev_acc:.3f}, dev F1 :: {dev_f1:.3f}")
 
 
 def test(args):
@@ -386,7 +386,7 @@ if __name__ == "__main__":
     lr=args.lr,
     use_gpu=args.use_gpu,
     epochs=args.epochs,
-    batch_size=8,
+    batch_size=64,
     hidden_dropout_prob=args.hidden_dropout_prob,
     train='data/ids-cfimdb-train.csv',
     dev='data/ids-cfimdb-dev.csv',
