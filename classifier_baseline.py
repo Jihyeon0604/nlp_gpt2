@@ -300,9 +300,12 @@ def train(args):
 
 
 def test(args):
-  from types import SimpleNamespace
   import torch.serialization
+  import numpy.core.multiarray as multiarray
+  from types import SimpleNamespace
+
   torch.serialization.add_safe_globals([SimpleNamespace])
+  torch.serialization.add_safe_globals([multiarray._reconstruct])
   
   with torch.no_grad():
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
