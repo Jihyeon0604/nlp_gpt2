@@ -300,6 +300,10 @@ def train(args):
 
 
 def test(args):
+  from types import SimpleNamespace
+  import torch.serialization
+  torch.serialization.add_safe_globals([SimpleNamespace])
+  
   with torch.no_grad():
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
     saved = torch.load(args.filepath)
