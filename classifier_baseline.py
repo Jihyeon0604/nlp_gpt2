@@ -346,14 +346,13 @@ def get_args():
   parser.add_argument("--seed", type=int, default=11711)
   parser.add_argument("--epochs", type=int, default=10)
   parser.add_argument("--fine-tune-mode", type=str,
-                      help='last-linear-layer: the GPT parameters are frozen and the task specific head parameters are updated; full-model: GPT parameters are updated as well',
                       choices=('last-linear-layer', 'full-model'), default="last-linear-layer")
   parser.add_argument("--use_gpu", action='store_true')
 
-  parser.add_argument("--batch_size", help='sst: 64, cfimdb: 8 can fit a 12GB GPU', type=int, default=8)
+  parser.add_argument("--batch_size", type=int, default=-1,  # -1이면 자동 설정
+                      help="batch size: SST=64, CFIMDB=8 (default: auto)")
   parser.add_argument("--hidden_dropout_prob", type=float, default=0.3)
-  parser.add_argument("--lr", type=float, help="learning rate, default lr for 'pretrain': 1e-3, 'finetune': 1e-5",
-                      default=1e-3)
+  parser.add_argument("--lr", type=float, default=1e-3)
 
   args = parser.parse_args()
   return args
@@ -364,12 +363,13 @@ if __name__ == "__main__":
   seed_everything(args.seed)
 
   print('Training Sentiment Classifier on SST...')
+  sst_batch_size = args.batch_size if args.batch_size > 0 else 64  # 자동 설정
   config = SimpleNamespace(
     filepath='sst-classifier.pt',
     lr=args.lr,
     use_gpu=args.use_gpu,
     epochs=args.epochs,
-    batch_size=args.batch_size,
+    batch_size=sst_batch_size,
     hidden_dropout_prob=args.hidden_dropout_prob,
     train='data/ids-sst-train.csv',
     dev='data/ids-sst-dev.csv',
@@ -380,17 +380,17 @@ if __name__ == "__main__":
   )
 
   train(config)
-
   print('Evaluating on SST...')
   test(config)
 
   print('Training Sentiment Classifier on cfimdb...')
+  cfimdb_batch_size = args.batch_size if args.batch_size > 0 else 8  # 자동 설정
   config = SimpleNamespace(
     filepath='cfimdb-classifier.pt',
     lr=args.lr,
     use_gpu=args.use_gpu,
     epochs=args.epochs,
-    batch_size=64,
+    batch_size=cfimdb_batch_size,
     hidden_dropout_prob=args.hidden_dropout_prob,
     train='data/ids-cfimdb-train.csv',
     dev='data/ids-cfimdb-dev.csv',
@@ -401,6 +401,5 @@ if __name__ == "__main__":
   )
 
   train(config)
-
   print('Evaluating on cfimdb...')
   test(config)
