@@ -49,7 +49,7 @@ class GPT2SentimentClassifier(torch.nn.Module):
     self.dropout = torch.nn.Dropout(config.hidden_dropout_prob)
     self.classifier = torch.nn.Linear(config.hidden_size, self.num_labels)
 
-def forward(self, input_ids, attention_mask):
+  def forward(self, input_ids, attention_mask):
     outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
     last_token = outputs['last_token']  # 딕셔너리 접근으로 수정
     x = self.dropout(last_token)
