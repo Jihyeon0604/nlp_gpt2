@@ -262,7 +262,7 @@ def train(args):
     for layer in layers[:-2]:  # 하위 layer는 freeze
       for param in layer.parameters():
         param.requires_grad = False
-    for param in model.gpt.transformer.ln_f.parameters():
+    for param in model.gpt.final_layer_norm.parameters():
       param.requires_grad = False
     for param in model.classifier.parameters():
       param.requires_grad = True
