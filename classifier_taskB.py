@@ -374,6 +374,11 @@ if __name__ == "__main__":
   seed_everything(args.seed)
 
   print('Training Sentiment Classifier on SST...')
+  
+  tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+  tokenizer.pad_token = tokenizer.eos_token  # padding token 설정
+
+
   sst_batch_size = args.batch_size if args.batch_size > 0 else 64  # 자동 설정
   config = SimpleNamespace(
     filepath='sst-classifier.pt',
@@ -388,7 +393,10 @@ if __name__ == "__main__":
     fine_tune_mode=args.fine_tune_mode,
     dev_out='predictions/' + args.fine_tune_mode + '-sst-dev-out.csv',
     test_out='predictions/' + args.fine_tune_mode + '-sst-test-out.csv',
-    name_or_path='gpt2'
+    name_or_path='gpt2',
+    vocab_size=tokenizer.vocab_size,
+    pad_token_id=tokenizer.pad_token_id, 
+    max_position_embeddings=tokenizer.model_max_length 
   )
 
   train(config)
@@ -410,7 +418,10 @@ if __name__ == "__main__":
     fine_tune_mode=args.fine_tune_mode,
     dev_out='predictions/' + args.fine_tune_mode + '-cfimdb-dev-out.csv',
     test_out='predictions/' + args.fine_tune_mode + '-cfimdb-test-out.csv',
-    name_or_path='gpt2'
+    name_or_path='gpt2',
+    vocab_size=tokenizer.vocab_size,
+    pad_token_id=tokenizer.pad_token_id, 
+    max_position_embeddings=tokenizer.model_max_length 
   )
 
   train(config)
