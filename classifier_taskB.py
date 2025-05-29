@@ -396,7 +396,11 @@ if __name__ == "__main__":
     name_or_path='gpt2',
     vocab_size=tokenizer.vocab_size,
     pad_token_id=tokenizer.pad_token_id, 
-    max_position_embeddings=tokenizer.model_max_length 
+    max_position_embeddings=tokenizer.model_max_length,
+    num_hidden_layers=12,
+    num_attention_heads=12,
+    intermediate_size=2304,
+    layer_norm_eps=1e-5,
   )
 
   train(config)
@@ -421,7 +425,11 @@ if __name__ == "__main__":
     name_or_path='gpt2',
     vocab_size=tokenizer.vocab_size,
     pad_token_id=tokenizer.pad_token_id, 
-    max_position_embeddings=tokenizer.model_max_length 
+    max_position_embeddings=tokenizer.model_max_length,
+    num_hidden_layers=12,
+    num_attention_heads=12,
+    intermediate_size=2304,
+    layer_norm_eps=1e-5,
   )
 
   train(config)
