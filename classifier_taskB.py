@@ -41,8 +41,9 @@ class LoRALinear(nn.Module):
         self.weight = nn.Parameter(torch.randn(out_features, in_features) * 0.02)
         self.bias = nn.Parameter(torch.zeros(out_features))
 
-        self.lora_A = nn.Parameter(torch.randn(r, in_features) * 0.02)
-        self.lora_B = nn.Parameter(torch.randn(out_features, r) * 0.02)
+        self.lora_A = nn.Linear(in_features, r, bias=False)
+        self.lora_B = nn.Linear(r, out_features, bias=False)
+
         self.scaling = lora_alpha / r
 
     def forward(self, x):
