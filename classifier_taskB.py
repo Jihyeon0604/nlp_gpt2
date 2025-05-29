@@ -393,7 +393,8 @@ if __name__ == "__main__":
     test='data/ids-sst-test-student.csv',
     fine_tune_mode=args.fine_tune_mode,
     dev_out='predictions/' + args.fine_tune_mode + '-sst-dev-out.csv',
-    test_out='predictions/' + args.fine_tune_mode + '-sst-test-out.csv'
+    test_out='predictions/' + args.fine_tune_mode + '-sst-test-out.csv',
+    name_or_path='gpt2'
   )
 
   train(config)
