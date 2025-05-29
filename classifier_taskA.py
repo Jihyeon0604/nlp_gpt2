@@ -33,19 +33,11 @@ def seed_everything(seed=11711):
 
 
 class GPT2SentimentClassifier(torch.nn.Module):
-  '''
-  이 모듈은 GPT-2를 사용하여 클로즈 스타일(빈칸 채우기) 작업으로 감정 분류를 수행한다.
-
-  SST 데이터셋의 감정 범주 = 5 가지(0 - "부정"에서 4 - "긍정"까지).
-  따라서, forward() 함수는 5개의 클래스 각각에 대해 하나의 로짓(logit)을 반환해야 한다.
-  '''
-
   def __init__(self, config):
     super(GPT2SentimentClassifier, self).__init__()
     self.num_labels = config.num_labels
     self.gpt = GPT2Model.from_pretrained()
 
-    # 사전학습 모드에서는 GPT 파라미터들을 업데이트할 필요가가 없다.
     assert config.fine_tune_mode in ["last-linear-layer", "full-model"]
     for param in self.gpt.parameters():
       if config.fine_tune_mode == 'last-linear-layer':
@@ -53,23 +45,18 @@ class GPT2SentimentClassifier(torch.nn.Module):
       elif config.fine_tune_mode == 'full-model':
         param.requires_grad = True
 
-    '''
-    TODO: BERT 임베딩의 감정 분류를 위해 필요한 인스턴스 변수를 생성하시오.
-    '''
-    ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
-
+    # TODO
+    self.dropout = torch.nn.Dropout(config.hidden_dropout_prob)
+    self.classifier = torch.nn.Linear(config.hidden_size, self.num_labels)
 
   def forward(self, input_ids, attention_mask):
-    '''문장들의 batch를 받아서 감정 클래스에 대한 로짓을 반환'''
-
-    '''
-    TODO: 최종 GPT contextualized embedding은 마지막 토큰의 hidden state이다.
-        힌트: 현재 훈련 반복루프에서 손실 함수로 `F.cross_entropy`를 사용하고 있음을 고려하여
-        적절한 반환값이 무엇인지 생각해보시오.
-    '''
-    ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
+    # TODO
+    outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
+    last_hidden = outputs.last_hidden_state  # (B, L, H)
+    last_token = last_hidden[:, -1, :]       # (B, H)
+    x = self.dropout(last_token)
+    logits = self.classifier(x)
+    return logits
 
 
 class SentimentDataset(Dataset):
@@ -245,6 +232,7 @@ def save_model(model, optimizer, args, config, filepath):
 
 def train(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
+
   # 데이터와 해당 데이터셋 및 데이터로더를 만든다.
   train_data, num_labels = load_data(args.train, 'train')
   dev_data = load_data(args.dev, 'valid')
@@ -263,14 +251,53 @@ def train(args):
             'hidden_size': 768,
             'data_dir': '.',
             'fine_tune_mode': args.fine_tune_mode}
-
   config = SimpleNamespace(**config)
 
   model = GPT2SentimentClassifier(config)
   model = model.to(device)
 
-  lr = args.lr
-  optimizer = AdamW(model.parameters(), lr=lr)
+  # Gradual Unfreezing
+  if args.fine_tune_mode == 'full-model':
+    layers = model.gpt.transformer.h
+    for layer in layers[:-2]:  # 하위 layer는 freeze
+      for param in layer.parameters():
+        param.requires_grad = False
+    for param in model.gpt.transformer.ln_f.parameters():
+      param.requires_grad = False
+    for param in model.classifier.parameters():
+      param.requires_grad = True
+    for param in model.dropout.parameters():
+      param.requires_grad = True
+
+  # Discriminative LR
+  def get_optimizer(model, base_lr):
+    params = []
+    grouped = [
+      (model.gpt.transformer.h[:-2], base_lr * 0.2),
+      (model.gpt.transformer.h[-2:], base_lr * 0.5),
+      ([model.gpt.transformer.ln_f], base_lr * 1.0),
+      ([model.classifier], base_lr * 5.0),
+    ]
+    for modules, lr in grouped:
+      for m in modules:
+        params += [{'params': m.parameters(), 'lr': lr}]
+    return AdamW(params)
+
+  optimizer = get_optimizer(model, args.lr)
+
+  # Slanted Triangular LR
+  total_steps = len(train_dataloader) * args.epochs
+  def slanted_triangular(step):
+    cut_frac = 0.1
+    cut = int(total_steps * cut_frac)
+    if step < cut:
+      p = step / cut
+    else:
+      p = 1 - (step - cut) / (total_steps - cut)
+    return max(p, 1e-6)
+
+  scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=slanted_triangular)
+
   best_dev_acc = 0
 
   for epoch in range(args.epochs):
@@ -291,6 +318,7 @@ def train(args):
 
       loss.backward()
       optimizer.step()
+      scheduler.step()
 
       train_loss += loss.item()
       num_batches += 1
@@ -306,11 +334,20 @@ def train(args):
 
     print(f"Epoch {epoch}: train loss :: {train_loss:.3f}, train acc :: {train_acc:.3f}, train F1 :: {train_f1:.3f}, dev acc :: {dev_acc:.3f}, dev F1 :: {dev_f1:.3f}")
 
-
 def test(args):
+  from types import SimpleNamespace
+  import torch.serialization
+  import numpy as np
+  import numpy.core.multiarray as multiarray
+
+  torch.serialization.add_safe_globals([SimpleNamespace])
+  torch.serialization.add_safe_globals([multiarray._reconstruct])
+  torch.serialization.add_safe_globals([np.ndarray])
+
+  
   with torch.no_grad():
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-    saved = torch.load(args.filepath)
+    saved = torch.load(args.filepath, weights_only=False)
     config = saved['model_config']
     model = GPT2SentimentClassifier(config)
     model.load_state_dict(saved['model'])
