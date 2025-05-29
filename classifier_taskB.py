@@ -59,8 +59,8 @@ class GPT2SentimentClassifier(nn.Module):
         self.config = config
         self.num_labels = config.num_labels
 
-        # GPT2 모델 그대로 사용
-        from models.gpt2 import GPT2Model
+        # GPT2 모델 lora로 사용
+        from models.gpt2_lora import GPT2Model
         self.gpt = GPT2Model(config)
 
         # 마지막 token → linear layer (LoRA 적용)
@@ -401,6 +401,7 @@ if __name__ == "__main__":
     num_attention_heads=12,
     intermediate_size=2304,
     layer_norm_eps=1e-5,
+    attention_probs_dropout_prob=0.1,
   )
 
   train(config)
@@ -430,6 +431,7 @@ if __name__ == "__main__":
     num_attention_heads=12,
     intermediate_size=2304,
     layer_norm_eps=1e-5,
+    attention_probs_dropout_prob=0.1,
   )
 
   train(config)
