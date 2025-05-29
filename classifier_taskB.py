@@ -402,6 +402,7 @@ if __name__ == "__main__":
     intermediate_size=2304,
     layer_norm_eps=1e-5,
     attention_probs_dropout_prob=0.1,
+    initializer_range=0.02,
   )
 
   train(config)
@@ -432,6 +433,7 @@ if __name__ == "__main__":
     intermediate_size=2304,
     layer_norm_eps=1e-5,
     attention_probs_dropout_prob=0.1,
+    initializer_range=0.02,
   )
 
   train(config)
