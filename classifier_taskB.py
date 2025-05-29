@@ -49,8 +49,8 @@ class LoRALinear(nn.Module):
         result = F.linear(x, self.weight, self.bias)
         if self.training:
             x = self.dropout(x)
-        lora_result = F.linear(x, self.lora_A.T)
-        lora_result = F.linear(lora_result, self.lora_B.T)
+        lora_result = self.lora_A(x)  
+        lora_result = self.lora_B(lora_result)
         return result + self.scaling * lora_result
 
 class GPT2SentimentClassifier(nn.Module):
