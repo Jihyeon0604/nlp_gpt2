@@ -258,7 +258,7 @@ def train(args):
 
   # Gradual Unfreezing
   if args.fine_tune_mode == 'full-model':
-    layers = model.gpt.transformer.h
+    layers = model.gpt.gpt_layers
     for layer in layers[:-2]:  # 하위 layer는 freeze
       for param in layer.parameters():
         param.requires_grad = False
@@ -273,9 +273,9 @@ def train(args):
   def get_optimizer(model, base_lr):
     params = []
     grouped = [
-      (model.gpt.transformer.h[:-2], base_lr * 0.2),
-      (model.gpt.transformer.h[-2:], base_lr * 0.5),
-      ([model.gpt.transformer.ln_f], base_lr * 1.0),
+      (model.gpt.gpt_layers[:-2], base_lr * 0.2),
+      (model.gpt.gpt_layers[-2:], base_lr * 0.5),
+      ([model.gpt.final_layer_norm], base_lr * 1.0),
       ([model.classifier], base_lr * 5.0),
     ]
     for modules, lr in grouped:
