@@ -269,45 +269,12 @@ def train(args):
 
   lr = args.lr
     # ULMFiT: 상위 2개 레이어만 unfreeze
-  for name, param in model.named_parameters():
-    if any(f'transformer.h.{i}' in name for i in [10, 11]) or 'score' in name:
+  # 전체 fine-tuning + LoRA
+  for param in model.parameters():
       param.requires_grad = True
-    else:
-      param.requires_grad = False
 
-  # Discriminative Learning Rate 설정
-  optimizer_grouped_parameters = [
-    {
-      "params": [],
-      "lr": lr * 0.2  # 하위 레이어 (기본값보다 낮게)
-    },
-    {
-      "params": [],
-      "lr": lr * 1.0  # transformer.h.10
-    },
-    {
-      "params": [],
-      "lr": lr * 5.0  # transformer.h.11
-    },
-    {
-      "params": [],
-      "lr": lr        # 최종 classification head (score layer)
-    }
-  ]
+  optimizer = AdamW(model.parameters(), lr=lr)
 
-  for name, param in model.named_parameters():
-    if not param.requires_grad:
-      continue
-    elif 'transformer.h.10' in name:
-      optimizer_grouped_parameters[1]['params'].append(param)
-    elif 'transformer.h.11' in name:
-      optimizer_grouped_parameters[2]['params'].append(param)
-    elif 'score' in name:
-      optimizer_grouped_parameters[3]['params'].append(param)
-    else:
-      optimizer_grouped_parameters[0]['params'].append(param)
-
-  optimizer = AdamW(optimizer_grouped_parameters)
 
   best_dev_acc = 0
 
