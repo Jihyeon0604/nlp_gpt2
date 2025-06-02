@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+'''
+SST 과 CFIMDB 위에서 GPT2SentimentClassifier를 훈련하고 평가.
+'''
 
 import random, numpy as np, argparse
 from types import SimpleNamespace
@@ -14,9 +17,6 @@ from sklearn.metrics import f1_score, accuracy_score
 from models.gpt2 import GPT2Model
 from optimizer import AdamW
 from tqdm import tqdm
-
-import torch
-from types import SimpleNamespace
 
 TQDM_DISABLE = False
 
@@ -33,6 +33,13 @@ def seed_everything(seed=11711):
 
 
 class GPT2SentimentClassifier(torch.nn.Module):
+  '''
+  이 모듈은 GPT-2를 사용하여 클로즈 스타일(빈칸 채우기) 작업으로 감정 분류를 수행한다.
+
+  SST 데이터셋의 감정 범주 = 5 가지(0 - "부정"에서 4 - "긍정"까지).
+  따라서, forward() 함수는 5개의 클래스 각각에 대해 하나의 로짓(logit)을 반환해야 한다.
+  '''
+
   def __init__(self, config):
     super(GPT2SentimentClassifier, self).__init__()
     self.num_labels = config.num_labels
@@ -45,19 +52,16 @@ class GPT2SentimentClassifier(torch.nn.Module):
         param.requires_grad = False
       elif config.fine_tune_mode == 'full-model':
         param.requires_grad = True
-
     self.dropout = torch.nn.Dropout(config.hidden_dropout_prob)
     self.classifier = torch.nn.Linear(config.hidden_size, self.num_labels)
 
 
   def forward(self, input_ids, attention_mask):
-        outputs = self.gpt(input_ids, attention_mask)
-        last_hidden_state = outputs['last_hidden_state']
-        last_non_pad_idx = attention_mask.sum(dim=1) - 1
-        pooled_output = last_hidden_state[torch.arange(last_hidden_state.size(0)), last_non_pad_idx]
-        pooled_output = self.dropout(pooled_output)
-        logits = self.classifier(pooled_output)
-        return logits
+    outputs = self.gpt(input_ids, attention_mask)
+    last_token = outputs['last_token']  # (batch_size, hidden_size)
+    dropped = self.dropout(last_token)
+    logits = self.classifier(dropped)
+    return logits
 
 
 class SentimentDataset(Dataset):
@@ -226,7 +230,6 @@ def save_model(model, optimizer, args, config, filepath):
     'numpy_rng': np.random.get_state(),
     'torch_rng': torch.random.get_rng_state(),
   }
-  torch.serialization.add_safe_globals([SimpleNamespace])
 
   torch.save(save_info, filepath)
   print(f"save the model to {filepath}")
@@ -293,15 +296,22 @@ def train(args):
       best_dev_acc = dev_acc
       save_model(model, optimizer, args, config, args.filepath)
 
-    print(f"Epoch {epoch} | Train Loss: {train_loss/len(train_dataloader):.4f} | "
-      f"Train Acc: {train_acc:.4f} | Train F1: {train_f1:.4f} | "
-      f"Dev Acc: {dev_acc:.4f} | Dev F1: {dev_f1:.4f}")
+    print(f"Epoch {epoch}: train loss :: {train_loss:.3f}, train acc :: {train_acc:.3f}, train F1 :: {train_f1:.3f}, dev acc :: {dev_acc:.3f}, dev F1 :: {dev_f1:.3f}")
 
 
 def test(args):
+  from types import SimpleNamespace
+  import torch.serialization
+  import numpy as np
+  import numpy.core.multiarray as multiarray
+
+  torch.serialization.add_safe_globals([SimpleNamespace])
+  torch.serialization.add_safe_globals([multiarray._reconstruct])
+  torch.serialization.add_safe_globals([np.ndarray])
+
+  
   with torch.no_grad():
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-    torch.serialization.add_safe_globals([SimpleNamespace])
     saved = torch.load(args.filepath, weights_only=False)
     config = saved['model_config']
     model = GPT2SentimentClassifier(config)
@@ -338,31 +348,64 @@ def test(args):
 
 
 def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", type=int, default=11711)
-    parser.add_argument("--hidden_dropout_prob", type=float, default=0.3)
-    parser.add_argument("--train", type=str, default='data/ids-sst-train.csv')
-    parser.add_argument("--dev", type=str, default='data/ids-sst-dev.csv')
-    parser.add_argument("--test", type=str, default='data/ids-sst-test-student.csv')
-    parser.add_argument("--filepath", type=str, default='sst-classifier_baseline.pt')
-    parser.add_argument("--dev_out", type=str, default='predictions/dev_output.csv')
-    parser.add_argument("--test_out", type=str, default='predictions/test_output.csv')
-    parser.add_argument("--use_gpu", action='store_true')
-    parser.add_argument("--batch_size", type=int, default=64)
-    parser.add_argument("--fine_tune_mode", type=str, choices=["last-linear-layer", "full-model"], default="full-model")
-    parser.add_argument("--epochs", type=int, default=6) 
-    parser.add_argument("--lr", type=float, default=2e-5)  
-    return parser.parse_args()
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--seed", type=int, default=11711)
+  parser.add_argument("--epochs", type=int, default=10)
+  parser.add_argument("--fine-tune-mode", type=str,
+                      choices=('last-linear-layer', 'full-model'), default="last-linear-layer")
+  parser.add_argument("--use_gpu", action='store_true')
+
+  parser.add_argument("--batch_size", type=int, default=-1,  # -1이면 자동 설정
+                      help="batch size: SST=64, CFIMDB=8 (default: auto)")
+  parser.add_argument("--hidden_dropout_prob", type=float, default=0.3)
+  parser.add_argument("--lr", type=float, default=1e-3)
+
+  args = parser.parse_args()
+  return args
 
 
 if __name__ == "__main__":
-    args = get_args()
-    seed_everything(args.seed)
+  args = get_args()
+  seed_everything(args.seed)
 
-    # 학습
-    print('Training Sentiment Classifier on SST...')
-    train(args)
+  print('Training Sentiment Classifier on SST...')
+  sst_batch_size = args.batch_size if args.batch_size > 0 else 64  # 자동 설정
+  config = SimpleNamespace(
+    filepath='sst-classifier.pt',
+    lr=args.lr,
+    use_gpu=args.use_gpu,
+    epochs=args.epochs,
+    batch_size=sst_batch_size,
+    hidden_dropout_prob=args.hidden_dropout_prob,
+    train='data/ids-sst-train.csv',
+    dev='data/ids-sst-dev.csv',
+    test='data/ids-sst-test-student.csv',
+    fine_tune_mode=args.fine_tune_mode,
+    dev_out='predictions/' + args.fine_tune_mode + '-sst-dev-out.csv',
+    test_out='predictions/' + args.fine_tune_mode + '-sst-test-out.csv'
+  )
 
-    # 평가
-    print('Evaluating on SST...')
-    test(args)
+  train(config)
+  print('Evaluating on SST...')
+  test(config)
+
+  print('Training Sentiment Classifier on cfimdb...')
+  cfimdb_batch_size = args.batch_size if args.batch_size > 0 else 8  # 자동 설정
+  config = SimpleNamespace(
+    filepath='cfimdb-classifier.pt',
+    lr=args.lr,
+    use_gpu=args.use_gpu,
+    epochs=args.epochs,
+    batch_size=cfimdb_batch_size,
+    hidden_dropout_prob=args.hidden_dropout_prob,
+    train='data/ids-cfimdb-train.csv',
+    dev='data/ids-cfimdb-dev.csv',
+    test='data/ids-cfimdb-test-student.csv',
+    fine_tune_mode=args.fine_tune_mode,
+    dev_out='predictions/' + args.fine_tune_mode + '-cfimdb-dev-out.csv',
+    test_out='predictions/' + args.fine_tune_mode + '-cfimdb-test-out.csv'
+  )
+
+  train(config)
+  print('Evaluating on cfimdb...')
+  test(config)
