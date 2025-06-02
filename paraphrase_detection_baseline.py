@@ -20,6 +20,8 @@ from optimizer import AdamW
 # safe_globals로 Namespace 허용
 from torch.serialization import safe_globals
 from argparse import Namespace
+import numpy.core
+
 
 TQDM_DISABLE = False
 
@@ -124,16 +126,15 @@ def train(args):
 @torch.no_grad()
 def test(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-  # saved = torch.load(args.filepath)
-  # safe_globals로 Namespace 허용
-  with safe_globals([Namespace]):
-    saved = torch.load(args.filepath)
+  # 안전한 global 등록 + weights_only=False 설정
+  with safe_globals([Namespace, np.core.multiarray._reconstruct]):
+    saved = torch.load(args.filepath, weights_only=False)
 
   model = ParaphraseGPT(saved['args']).to(device)
   model.load_state_dict(saved['model'])
   model.eval()
   print(f"Loaded model to test from {args.filepath}")
-
+  
   para_dev_data = load_paraphrase_data(args.para_dev)
   para_test_data = load_paraphrase_data(args.para_test, split='test')
 
