@@ -231,15 +231,16 @@ if __name__ == "__main__":
     sst_batch_size = args.batch_size if args.batch_size > 0 else 64
     args.batch_size = sst_batch_size  
 
-    sst_args = SimpleNamespace(**vars(args),
-        filepath='sst-classifier.pt',
-        train='data/ids-sst-train.csv',
-        dev='data/ids-sst-dev.csv',
-        test='data/ids-sst-test-student.csv',
-        dev_out='predictions/full-model-sst-dev-out.csv',
-        test_out='predictions/full-model-sst-test-out.csv',
-        batch_size=64
-    )
+    sst_args = SimpleNamespace(**{**vars(args), 
+    'filepath': 'sst-classifier.pt',
+    'train': 'data/ids-sst-train.csv',
+    'dev': 'data/ids-sst-dev.csv',
+    'test': 'data/ids-sst-test-student.csv',
+    'dev_out': 'predictions/full-model-sst-dev-out.csv',
+    'test_out': 'predictions/full-model-sst-test-out.csv',
+    'batch_size': 64
+})
+
 
     print("Training Sentiment Classifier on SST...")
     train(sst_args)
@@ -249,15 +250,16 @@ if __name__ == "__main__":
     ids_batch_size = args.batch_size if args.batch_size > 0 else 64
     args.batch_size = ids_batch_size 
 
-    cfimdb_args = SimpleNamespace(**vars(args),
-        filepath='cfimdb-classifier.pt',
-        train='data/ids-cfimdb-train.csv',
-        dev='data/ids-cfimdb-dev.csv',
-        test='data/ids-cfimdb-test-student.csv',
-        dev_out='predictions/full-model-cfimdb-dev-out.csv',
-        test_out='predictions/full-model-cfimdb-test-out.csv',
-        batch_size=8
-    )
+    cfimdb_args = SimpleNamespace(**{
+    **vars(args),
+    'filepath': 'cfimdb-classifier.pt',
+    'train': 'data/ids-cfimdb-train.csv',
+    'dev': 'data/ids-cfimdb-dev.csv',
+    'test': 'data/ids-cfimdb-test-student.csv',
+    'dev_out': 'predictions/full-model-cfimdb-dev-out.csv',
+    'test_out': 'predictions/full-model-cfimdb-test-out.csv',
+    'batch_size': 8
+})
 
     print("Training Sentiment Classifier on CFIMDB...")
     train(cfimdb_args)
