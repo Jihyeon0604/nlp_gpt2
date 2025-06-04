@@ -227,6 +227,9 @@ if __name__ == "__main__":
     seed_everything(args.seed)
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
+    
+    sst_batch_size = args.batch_size if args.batch_size > 0 else 64
+    args.batch_size = sst_batch_size  
 
     sst_args = SimpleNamespace(**vars(args),
         filepath='sst-classifier.pt',
@@ -242,6 +245,9 @@ if __name__ == "__main__":
     train(sst_args)
     print("Evaluating on SST...")
     test(sst_args)
+    
+    ids_batch_size = args.batch_size if args.batch_size > 0 else 64
+    args.batch_size = ids_batch_size 
 
     cfimdb_args = SimpleNamespace(**vars(args),
         filepath='cfimdb-classifier.pt',
