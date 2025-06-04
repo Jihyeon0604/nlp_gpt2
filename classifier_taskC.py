@@ -159,16 +159,18 @@ def train(args):
     train_loader = DataLoader(SentimentDataset(train_data, args), batch_size=args.batch_size, shuffle=True, collate_fn=SentimentDataset(train_data, args).collate_fn)
     dev_loader = DataLoader(SentimentDataset(dev_data, args), batch_size=args.batch_size, shuffle=False, collate_fn=SentimentDataset(dev_data, args).collate_fn)
     
-    config = SimpleNamespace(
-    **vars(args),
-    num_labels=num_labels,
-    hidden_size=768,
-    name_or_path="gpt2",
-    vocab_size=50257,
-    pad_token_id=50256,
-    max_position_embeddings=1024,
-    num_hidden_layers=12,
-)
+    config_args = vars(args).copy()
+    config_args.update({
+    'num_labels': num_labels,
+    'hidden_size': 768,
+    'name_or_path': "gpt2",
+    'vocab_size': 50257,
+    'pad_token_id': 50256,
+    'max_position_embeddings': 1024,
+    'num_hidden_layers': 12,
+    })
+    config = SimpleNamespace(**config_args)
+
     model = GPT2SentimentClassifier(config).to(device)
     optimizer = AdamW(model.parameters(), lr=args.lr)
 
