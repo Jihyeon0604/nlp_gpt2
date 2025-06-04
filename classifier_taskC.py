@@ -238,7 +238,8 @@ if __name__ == "__main__":
     'test': 'data/ids-sst-test-student.csv',
     'dev_out': 'predictions/full-model-sst-dev-out.csv',
     'test_out': 'predictions/full-model-sst-test-out.csv',
-    'batch_size': 64
+    'batch_size': 64,
+    'name_or_path': 'gpt2'
 })
 
 
@@ -258,7 +259,8 @@ if __name__ == "__main__":
     'test': 'data/ids-cfimdb-test-student.csv',
     'dev_out': 'predictions/full-model-cfimdb-dev-out.csv',
     'test_out': 'predictions/full-model-cfimdb-test-out.csv',
-    'batch_size': 8
+    'batch_size': 8,
+    'name_or_path': 'gpt2'
 })
 
     print("Training Sentiment Classifier on CFIMDB...")
