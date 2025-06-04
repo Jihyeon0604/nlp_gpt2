@@ -168,6 +168,9 @@ def train(args):
     'pad_token_id': 50256,
     'max_position_embeddings': 1024,
     'num_hidden_layers': 12,
+    'num_attention_heads': 12,            
+    'intermediate_size': 3072,               
+    'hidden_dropout_prob': args.hidden_dropout_prob,
     })
     config = SimpleNamespace(**config_args)
 
