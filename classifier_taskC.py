@@ -241,7 +241,8 @@ if __name__ == "__main__":
     'batch_size': 64,
     'name_or_path': 'gpt2',
     'vocab_size': tokenizer.vocab_size,       
-    'pad_token_id': tokenizer.pad_token_id 
+    'pad_token_id': tokenizer.pad_token_id,
+    'max_position_embeddings': 1024
 })
 
 
@@ -264,7 +265,8 @@ if __name__ == "__main__":
     'batch_size': 8,
     'name_or_path': 'gpt2',
     'vocab_size': tokenizer.vocab_size,       
-    'pad_token_id': tokenizer.pad_token_id 
+    'pad_token_id': tokenizer.pad_token_id,
+    'max_position_embeddings': 1024
 })
 
     print("Training Sentiment Classifier on CFIMDB...")
