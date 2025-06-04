@@ -239,7 +239,9 @@ if __name__ == "__main__":
     'dev_out': 'predictions/full-model-sst-dev-out.csv',
     'test_out': 'predictions/full-model-sst-test-out.csv',
     'batch_size': 64,
-    'name_or_path': 'gpt2'
+    'name_or_path': 'gpt2',
+    'vocab_size': tokenizer.vocab_size,       
+    'pad_token_id': tokenizer.pad_token_id 
 })
 
 
@@ -260,7 +262,9 @@ if __name__ == "__main__":
     'dev_out': 'predictions/full-model-cfimdb-dev-out.csv',
     'test_out': 'predictions/full-model-cfimdb-test-out.csv',
     'batch_size': 8,
-    'name_or_path': 'gpt2'
+    'name_or_path': 'gpt2',
+    'vocab_size': tokenizer.vocab_size,       
+    'pad_token_id': tokenizer.pad_token_id 
 })
 
     print("Training Sentiment Classifier on CFIMDB...")
