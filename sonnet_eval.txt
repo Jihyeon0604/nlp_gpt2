@@ -30,3 +30,11 @@ Distinct 지표들은 약간 하락했지만 여전히 양호함
 
 B는 Perplexity는 가장 좋지만 다양성이 떨어짐.
 C는 다양성은 최고이지만 라임 품질이 가장 낮음.
+
+
+NVIDIA TITAN RTX 1대 이용
+학습시간 (모델 저장, 소넷 생성 시간 제외)
+Baseline : Epoch당 1초
+taskA : Epoch당 7초
+taskB : Epoch당 1초
+taskC : Epoch당 7초
