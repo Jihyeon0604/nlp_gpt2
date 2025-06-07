@@ -40,6 +40,10 @@ class SonnetGPT(nn.Module):
     self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     self.tokenizer.pad_token = self.tokenizer.eos_token
 
+    # Unlikelihood Loss 관련 파라미터
+    self.alpha = args.alpha if hasattr(args, 'alpha') else 1.0  # Unlikelihood loss weight
+    self.repetition_window = args.repetition_window if hasattr(args, 'repetition_window') else 5
+    
     # 마지막 일부 레이어만 fine-tuning (예: 마지막 4개 레이어)
     for param in self.gpt.parameters():
       param.requires_grad = True
@@ -57,6 +61,55 @@ class SonnetGPT(nn.Module):
     # hidden states를 vocabulary logit으로 변환
     logits = self.gpt.hidden_state_to_token(hidden_states)  # shape: [batch_size, seq_len, vocab_size]
     return logits
+
+  def compute_unlikelihood_loss(self, logits, input_ids):
+    """Unlikelihood Loss 계산 함수"""
+    batch_size, seq_len, vocab_size = logits.shape
+    total_ul_loss = 0.0
+    
+    for b in range(batch_size):
+      for t in range(1, seq_len):  # 첫 번째 토큰은 스킵
+        current_token = input_ids[b, t]
+        
+        # 현재 위치에서 과거 repetition_window 내의 토큰들 확인
+        start_idx = max(0, t - self.repetition_window)
+        context_tokens = input_ids[b, start_idx:t]
+        
+        # 반복되는 토큰들 찾기
+        repeated_tokens = []
+        for prev_token in context_tokens:
+          if prev_token == current_token:
+            repeated_tokens.append(prev_token.item())
+        
+        # 반복된 토큰들에 대해 unlikelihood loss 적용
+        if repeated_tokens:
+          current_logits = logits[b, t]  # [vocab_size]
+          probs = torch.softmax(current_logits, dim=-1)
+          
+          # 반복된 토큰들의 확률을 낮추는 손실
+          for token_id in set(repeated_tokens):  # 중복 제거
+            if token_id < vocab_size:
+              # -log(1 - p(token)) : 확률이 높을수록 손실이 커짐
+              token_prob = probs[token_id]
+              ul_loss = -torch.log(torch.clamp(1.0 - token_prob, min=1e-8))
+              total_ul_loss += ul_loss
+    
+    return total_ul_loss / (batch_size * seq_len)  # 정규화
+
+  def compute_combined_loss(self, logits, labels, input_ids):
+    """Standard Cross-Entropy + Unlikelihood Loss"""
+    # 기본 언어 모델링 손실
+    ce_logits = rearrange(logits[:, :-1], 'b t d -> (b t) d')
+    ce_labels = labels[:, 1:].contiguous().flatten()
+    ce_loss = F.cross_entropy(ce_logits, ce_labels, reduction='mean')
+    
+    # Unlikelihood 손실
+    ul_loss = self.compute_unlikelihood_loss(logits, input_ids)
+    
+    # 결합된 손실
+    total_loss = ce_loss + self.alpha * ul_loss
+    
+    return total_loss, ce_loss, ul_loss
 
   def get_device(self):
     for param in self.gpt.parameters():
@@ -190,35 +243,63 @@ def train(args):
   for epoch in range(args.epochs):
     model.train()
     train_loss = 0
+    ce_loss_sum = 0
+    ul_loss_sum = 0
     num_batches = 0
 
     for batch in tqdm(sonnet_dataloader, desc=f'train-{epoch}', disable=TQDM_DISABLE):
         b_ids, b_mask = batch['token_ids'].to(device), batch['attention_mask'].to(device)
         optimizer.zero_grad()
+        
+        # Forward pass
         logits = model(b_ids, b_mask)
-        logits = rearrange(logits[:, :-1], 'b t d -> (b t) d')
-        labels = b_ids[:, 1:].contiguous().flatten()
-        loss = F.cross_entropy(logits, labels, reduction='mean')
-        loss.backward()
+        
+        # Unlikelihood Loss와 함께 손실 계산
+        total_loss, ce_loss, ul_loss = model.compute_combined_loss(logits, b_ids, b_ids)
+        
+        # Backward pass
+        total_loss.backward()
         optimizer.step()
 
-        train_loss += loss.item()
+        # 통계 수집
+        train_loss += total_loss.item()
+        ce_loss_sum += ce_loss.item()
+        ul_loss_sum += ul_loss.item()
         num_batches += 1
 
-    train_loss = train_loss / num_batches
-    scheduler.step(train_loss)
-    print(f"Epoch {epoch}: train loss :: {train_loss :.3f}.")
+    # 에포크 통계
+    avg_train_loss = train_loss / num_batches
+    avg_ce_loss = ce_loss_sum / num_batches
+    avg_ul_loss = ul_loss_sum / num_batches
+    
+    scheduler.step(avg_train_loss)
+    print(f"Epoch {epoch}: total loss :: {avg_train_loss:.3f} | CE loss :: {avg_ce_loss:.3f} | UL loss :: {avg_ul_loss:.3f}")
 
-    if train_loss < best_loss:
-        best_loss = train_loss
+    if avg_train_loss < best_loss:
+        best_loss = avg_train_loss
         counter = 0
-        print(f"Saving best model at epoch {epoch} with loss {train_loss:.3f}")
+        print(f"Saving best model at epoch {epoch} with total loss {avg_train_loss:.3f}")
         save_model(model, optimizer, args, f'best_{args.filepath}')
     else:
         counter += 1
         if counter >= patience:
             print("Early stopping triggered.")
             break
+
+    # 매 에포크마다 간단한 샘플 생성 (선택사항)
+    if epoch % 2 == 0:  # 2 에포크마다만 샘플 생성
+        print('Generating sample output sonnets...')
+        model.eval()
+        sample_count = 0
+        for batch in held_out_sonnet_dataset:
+            if sample_count >= 2:  # 최대 2개만 샘플로 생성
+                break
+            encoding = model.tokenizer(batch[1], return_tensors='pt', padding=True, truncation=True)
+            encoding = {k: v.to(device) for k, v in encoding.items()}
+            output = model.generate(encoding['input_ids'], temperature=args.temperature)
+            print(f'Sample {sample_count + 1}:')
+            print(f'{batch[1]}{output[1]}\n')
+            sample_count += 1
         
   print("Training completed!")
   return model
@@ -263,15 +344,20 @@ def get_args():
   parser = argparse.ArgumentParser()
   parser.add_argument("--sonnet_path", type=str, default="data/sonnets.txt")
   parser.add_argument("--held_out_sonnet_path", type=str, default="data/sonnets_held_out.txt")
-  parser.add_argument("--sonnet_out", type=str, default="predictions/generated_sonnets.txt")
+  parser.add_argument("--sonnet_out", type=str, default="predictions/generated_sonnets_A.txt")
   parser.add_argument("--seed", type=int, default=11711)
   parser.add_argument("--epochs", type=int, default=10)
   parser.add_argument("--use_gpu", action='store_true')
   parser.add_argument("--temperature", type=float, default=0.8)
-  parser.add_argument("--top_p", type=float, default=0.9)
+  parser.add_argument("--top_p", type=float, default=0.9) 
   parser.add_argument("--batch_size", type=int, default=8)
   parser.add_argument("--lr", type=float, default=1e-5)
   parser.add_argument("--model_size", type=str, choices=['gpt2', 'gpt2-medium', 'gpt2-large'], default='gpt2')
+  
+  # Unlikelihood Loss 관련 파라미터
+  parser.add_argument("--alpha", type=float, default=1.0, help="Weight for unlikelihood loss")
+  parser.add_argument("--repetition_window", type=int, default=5, help="Window size for detecting repetitions")
+  
   return parser.parse_args()
 
 def add_arguments(args):
@@ -293,7 +379,7 @@ def add_arguments(args):
 
 if __name__ == "__main__":
   args = get_args()
-  args.filepath = f'{args.epochs}-{args.lr}-sonnet.pt'
+  args.filepath = f'{args.epochs}-{args.lr}-sonnet_A.pt'
   seed_everything(args.seed)
   
   # 훈련 실행

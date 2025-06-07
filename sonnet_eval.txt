@@ -1,0 +1,32 @@
+base:
+  Average Perplexity: 55.73
+  Average Distinct-1: 0.621
+  Average Distinct-2: 0.927
+  Average Rhyming Accuracy: 0.141
+
+A:
+  Average Perplexity: 51.68
+  Average Distinct-1: 0.613
+  Average Distinct-2: 0.919
+  Average Rhyming Accuracy: 0.215
+
+B:
+  Average Perplexity: 50.11
+  Average Distinct-1: 0.572
+  Average Distinct-2: 0.878
+  Average Rhyming Accuracy: 0.166
+
+C:
+  Average Perplexity: 55.70
+  Average Distinct-1: 0.641
+  Average Distinct-2: 0.944
+  Average Rhyming Accuracy: 0.132
+
+A가 가장 균형잡힌 성능을 보임:
+
+Perplexity가 base보다 개선됨 (55.73 → 51.68)
+Rhyming Accuracy가 크게 향상됨 (0.141 → 0.215)
+Distinct 지표들은 약간 하락했지만 여전히 양호함
+
+B는 Perplexity는 가장 좋지만 다양성이 떨어짐.
+C는 다양성은 최고이지만 라임 품질이 가장 낮음.
