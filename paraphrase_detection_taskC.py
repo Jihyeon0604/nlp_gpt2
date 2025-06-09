@@ -30,33 +30,24 @@ def seed_everything(seed=11711):
   torch.backends.cudnn.deterministic = True
 
 
+# 1. ParaphraseGPT 클래스 수정 (Dropout 추가)
 class ParaphraseGPT(nn.Module):
-  """Paraphrase Detection을 위해 설계된 여러분의 GPT-2 Model."""
-
   def __init__(self, args):
     super().__init__()
     self.gpt = GPT2Model.from_pretrained(model=args.model_size, d=args.d, l=args.l, num_heads=args.num_heads)
-    self.paraphrase_detection_head = nn.Linear(args.d, 2)  # yes or no
+    self.dropout = nn.Dropout(p=0.3)  # Dropout 추가
+    self.paraphrase_detection_head = nn.Linear(args.d, 2)
 
-    # 전체 파라미터를 파인튜닝하도록 설정
     for param in self.gpt.parameters():
       param.requires_grad = True
 
   def forward(self, input_ids, attention_mask):
-    # GPT-2의 출력 hidden states 얻기 (마지막 레이어)
-    hidden_states = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
-    
-    # 각 문장의 마지막 유효 토큰 위치 얻기
-    # attention_mask가 1인 마지막 위치를 구함
-    last_token_indices = attention_mask.sum(dim=1) - 1  # 각 문장의 실제 길이 - 1
-
-    # 각 문장의 마지막 토큰에 해당하는 hidden state 추출
-    last_hidden = hidden_states[torch.arange(hidden_states.size(0)), last_token_indices]
-
-    # 이 hidden state를 classification head에 통과시켜 yes/no 확률로 변환
-    logits = self.paraphrase_detection_head(last_hidden)
+    outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
+    sequence_output = outputs['last_hidden_state']
+    last_token_indices = attention_mask.sum(dim=1) - 1
+    last_hidden = sequence_output[torch.arange(sequence_output.size(0)), last_token_indices]
+    logits = self.paraphrase_detection_head(self.dropout(last_hidden))  # Dropout 적용
     return logits
-
 
 def save_model(model, optimizer, args, filepath):
   save_info = {
@@ -70,7 +61,15 @@ def save_model(model, optimizer, args, filepath):
   torch.save(save_info, filepath)
   print(f"save the model to {filepath}")
 
+# 2. smooth_cross_entropy 함수 정의 추가
+def smooth_cross_entropy(logits, labels, smoothing=0.1):
+  confidence = 1.0 - smoothing
+  logprobs = F.log_softmax(logits, dim=-1)
+  nll = -logprobs.gather(dim=-1, index=labels.unsqueeze(1)).squeeze(1)
+  smooth_loss = -logprobs.mean(dim=-1)
+  return (confidence * nll + smoothing * smooth_loss).mean()
 
+# 3. train() 함수 수정: optimizer 설정 (LLRD) 및 loss 함수 대체
 def train(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
   para_train_data = load_paraphrase_data(args.para_train)
@@ -86,10 +85,19 @@ def train(args):
 
   args = add_arguments(args)
   model = ParaphraseGPT(args).to(device)
-  # optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=0.)
-  optimizer = AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=0.)
-  best_dev_acc = 0
 
+  # # optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=0.)
+  # optimizer = AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=0.)
+  # best_dev_acc = 0
+
+  # LLRD 적용 (layer-wise learning rate decay)
+  optimizer = AdamW([
+    {"params": model.gpt.transformer.h[:6].parameters(), "lr": args.lr * 0.5},  # 하위 layer
+    {"params": model.gpt.transformer.h[6:].parameters(), "lr": args.lr},        # 상위 layer
+    {"params": model.paraphrase_detection_head.parameters(), "lr": args.lr * 2} # head layer
+  ], weight_decay=0.)
+
+  best_dev_acc = 0
 
   for epoch in range(args.epochs):
     model.train()
@@ -102,7 +110,8 @@ def train(args):
 
       optimizer.zero_grad()
       logits = model(b_ids, b_mask)
-      loss = F.cross_entropy(logits, labels, reduction='mean')
+      # loss = F.cross_entropy(logits, labels, reduction='mean')
+      loss = smooth_cross_entropy(logits, labels, smoothing=0.1)  # label smoothing 적용
       loss.backward()
       optimizer.step()
 
@@ -185,7 +194,7 @@ def add_arguments(args):
 
 if __name__ == "__main__":
   args = get_args()
-  args.filepath = f'{args.epochs}-{args.lr}-paraphrase.pt'
+  args.filepath = f'{args.epochs}-{args.lr}-paraphrase_taskC.pt'
   seed_everything(args.seed)
   train(args)
   test(args)

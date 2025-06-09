@@ -8,8 +8,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-# datasets_paraphrase 사용 (프롬프트)
-from datasets_paraphrase import (
+from datasets import (
   ParaphraseDetectionDataset,
   ParaphraseDetectionTestDataset,
   load_paraphrase_data
@@ -17,6 +16,12 @@ from datasets_paraphrase import (
 from evaluation import model_eval_paraphrase, model_test_paraphrase
 from models.gpt2 import GPT2Model
 from optimizer import AdamW
+
+# safe_globals로 Namespace 허용
+from torch.serialization import safe_globals
+from argparse import Namespace
+import numpy.core
+
 
 TQDM_DISABLE = False
 
@@ -36,25 +41,20 @@ class ParaphraseGPT(nn.Module):
   def __init__(self, args):
     super().__init__()
     self.gpt = GPT2Model.from_pretrained(model=args.model_size, d=args.d, l=args.l, num_heads=args.num_heads)
+    self.dropout = nn.Dropout(p=0.3)  # Dropout 추가 (확률은 필요시 조정 가능)
     self.paraphrase_detection_head = nn.Linear(args.d, 2)  # yes or no
 
-    # 전체 파라미터를 파인튜닝하도록 설정
     for param in self.gpt.parameters():
       param.requires_grad = True
 
   def forward(self, input_ids, attention_mask):
-    # GPT-2의 출력 hidden states 얻기 (마지막 레이어)
-    hidden_states = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
-    
-    # 각 문장의 마지막 유효 토큰 위치 얻기
-    # attention_mask가 1인 마지막 위치를 구함
-    last_token_indices = attention_mask.sum(dim=1) - 1  # 각 문장의 실제 길이 - 1
+    outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
+    sequence_output = outputs['last_hidden_state']
+    last_token_indices = attention_mask.sum(dim=1) - 1
+    last_hidden = sequence_output[torch.arange(sequence_output.size(0)), last_token_indices]
 
-    # 각 문장의 마지막 토큰에 해당하는 hidden state 추출
-    last_hidden = hidden_states[torch.arange(hidden_states.size(0)), last_token_indices]
-
-    # 이 hidden state를 classification head에 통과시켜 yes/no 확률로 변환
-    logits = self.paraphrase_detection_head(last_hidden)
+    # Dropout 적용 후 classification head 전달
+    logits = self.paraphrase_detection_head(self.dropout(last_hidden))
     return logits
 
 
@@ -120,13 +120,15 @@ def train(args):
 @torch.no_grad()
 def test(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-  saved = torch.load(args.filepath)
+  # 안전한 global 등록 + weights_only=False 설정
+  with safe_globals([Namespace, np.core.multiarray._reconstruct]):
+    saved = torch.load(args.filepath, weights_only=False)
 
   model = ParaphraseGPT(saved['args']).to(device)
   model.load_state_dict(saved['model'])
   model.eval()
   print(f"Loaded model to test from {args.filepath}")
-
+  
   para_dev_data = load_paraphrase_data(args.para_dev)
   para_test_data = load_paraphrase_data(args.para_test, split='test')
 
@@ -183,7 +185,7 @@ def add_arguments(args):
 
 if __name__ == "__main__":
   args = get_args()
-  args.filepath = f'{args.epochs}-{args.lr}-paraphrase.pt'
+  args.filepath = f'{args.epochs}-{args.lr}-paraphrase_taskA.pt'
   seed_everything(args.seed)
   train(args)
   test(args)
