@@ -106,10 +106,10 @@ def train(args):
   # optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=0.)
   # 3. LLRD Optimizer 적용
   optimizer = AdamW([
-    {"params": model.gpt.transformer.h[:args.l//2].parameters(), "lr": args.lr * 0.5},
-    {"params": model.gpt.transformer.h[args.l//2:].parameters(), "lr": args.lr},
+    {"params": model.gpt.gpt_layers[:args.l//2].parameters(), "lr": args.lr * 0.5},
+    {"params": model.gpt.gpt_layers[args.l//2:].parameters(), "lr": args.lr},
     {"params": model.paraphrase_detection_head.parameters(), "lr": args.lr * 2}
-  ], weight_decay=0.)  
+  ], weight_decay=0.)
   
   best_dev_acc = 0
 
@@ -210,7 +210,7 @@ def add_arguments(args):
 
 if __name__ == "__main__":
   args = get_args()
-  args.filepath = f'{args.epochs}-{args.lr}-paraphrase.pt'
+  args.filepath = f'{args.epochs}-{args.lr}-paraphrase_taskC.pt'
   seed_everything(args.seed)
   train(args)
   test(args)
