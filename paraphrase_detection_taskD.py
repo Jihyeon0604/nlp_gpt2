@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 from torch import nn
 from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
 
 from datasets import (
