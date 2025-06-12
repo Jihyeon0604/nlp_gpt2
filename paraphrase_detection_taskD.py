@@ -57,7 +57,9 @@ class ParaphraseGPT(nn.Module):
     # Mean Pooling
     mask = attention_mask.unsqueeze(-1).expand(sequence_output.size()).float()
     sum_hidden = (sequence_output * mask).sum(dim=1)
-    mean_hidden = sum_hidden / mask.sum(dim=1)
+    mask_sum = mask.sum(dim=1)
+    mask_sum[mask_sum == 0] = 1e-8  # divide-by-zero 방지
+    mean_hidden = sum_hidden / mask_sum
 
     # Multi-Sample Dropout (3회)
     logits = 0
@@ -136,7 +138,15 @@ def train(args):
 
     scheduler.step()  # update learning rate
     train_loss = train_loss / num_batches
-    dev_acc, dev_f1, *_ = model_eval_paraphrase(para_dev_dataloader, model, device)
+    # dev_acc, dev_f1, *_ = model_eval_paraphrase(para_dev_dataloader, model, device)
+    # 평가 및 로깅
+    dev_acc, dev_f1, dev_preds, dev_labels, _ = model_eval_paraphrase(para_dev_dataloader, model, device)
+
+    # 🔍 디버깅 로그 추가
+    print(f"[Eval Debug] preds[:10] = {dev_preds[:10]}")
+    print(f"[Eval Debug] labels[:10] = {dev_labels[:10]}")
+    print(f"[Eval Debug] acc = {dev_acc:.4f}, f1 = {dev_f1:.4f}")
+
 
     if dev_acc > best_dev_acc:
       best_dev_acc = dev_acc
