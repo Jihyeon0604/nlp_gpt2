@@ -143,7 +143,8 @@ def train(args):
       num_batches += 1
 
     train_loss = train_loss / num_batches
-    dev_acc, dev_f1, dev_preds, dev_labels = model_eval_paraphrase(para_dev_dataloader, model, device)
+    dev_acc, dev_f1, dev_preds, dev_labels, _ = model_eval_paraphrase(para_dev_dataloader, model, device)
+
 
     dev_precision = precision_score(dev_labels, dev_preds)  # ✅ 추가
     dev_recall = recall_score(dev_labels, dev_preds)        # ✅ 추가
