@@ -143,14 +143,14 @@ def train(args):
       num_batches += 1
 
     train_loss = train_loss / num_batches
-    dev_acc, dev_f1, dev_preds, dev_labels, dev_loss = model_eval_paraphrase(para_dev_dataloader, model, device, return_loss=True)
+    dev_acc, dev_f1, dev_preds, dev_labels = model_eval_paraphrase(para_dev_dataloader, model, device)
 
     dev_precision = precision_score(dev_labels, dev_preds)  # ✅ 추가
     dev_recall = recall_score(dev_labels, dev_preds)        # ✅ 추가
-    score = dev_acc - 0.1 * dev_loss  # ✅ 종합 평가 score 계산
+    score = dev_acc
 
-    print(f"[Eval] acc: {dev_acc:.4f}, loss: {dev_loss:.4f}, f1: {dev_f1:.4f}, precision: {dev_precision:.4f}, recall: {dev_recall:.4f}, score: {score:.4f}")
-
+    print(f"[Eval] acc: {dev_acc:.4f}, f1: {dev_f1:.4f}, precision: {dev_precision:.4f}, recall: {dev_recall:.4f}, score: {score:.4f}")
+    
     if score > best_score:
       best_score = score
       save_model(model, optimizer, args, args.filepath)
