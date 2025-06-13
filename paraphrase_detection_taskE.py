@@ -140,9 +140,6 @@ def train(args):
     train_loss = train_loss / num_batches
     dev_acc, dev_f1, dev_preds, dev_labels, _ = model_eval_paraphrase(para_dev_dataloader, model, device)
 
-    # ✅ 추가: dev_loss도 측정 (추가 기능이지만 활용하지 않아도 됨)
-    dev_loss = smooth_cross_entropy(torch.tensor(dev_preds, device=device), torch.tensor(dev_labels, device=device))
-
     if dev_acc > best_dev_acc:
       best_dev_acc = dev_acc
       save_model(model, optimizer, args, args.filepath)
