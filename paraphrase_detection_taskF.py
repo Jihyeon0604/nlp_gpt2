@@ -51,7 +51,7 @@ class ParaphraseGPT(nn.Module):
 
   def forward(self, input_ids, attention_mask, epoch=None):
     if epoch is None:
-    epoch = 0  # 평가 시 dropout_dynamic을 위한 기본값
+        epoch = 0  # 평가 시 dropout_dynamic을 위한 기본값
     
     outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
     sequence_output = outputs['last_hidden_state']
