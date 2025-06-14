@@ -49,7 +49,10 @@ class ParaphraseGPT(nn.Module):
     for param in self.gpt.parameters():
       param.requires_grad = True
 
-  def forward(self, input_ids, attention_mask, epoch):
+  def forward(self, input_ids, attention_mask, epoch=None):
+    if epoch is None:
+    epoch = 0  # 평가 시 dropout_dynamic을 위한 기본값
+    
     outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
     sequence_output = outputs['last_hidden_state']
 
@@ -190,7 +193,7 @@ def get_args():
   parser.add_argument("--para_test_out", type=str, default="predictions/para-test-output.csv")
   parser.add_argument("--seed", type=int, default=11711)
   parser.add_argument("--epochs", type=int, default=10)
-  parser.add_argument("--use_gpu", action='store_true")
+  parser.add_argument("--use_gpu", action='store_true')
   parser.add_argument("--batch_size", type=int, default=8)
   parser.add_argument("--lr", type=float, default=1e-5)
   parser.add_argument("--model_size", type=str, choices=['gpt2', 'gpt2-medium', 'gpt2-large'], default='gpt2')
