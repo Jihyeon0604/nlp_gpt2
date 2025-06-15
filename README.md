@@ -75,7 +75,7 @@ python classifier_taskA.py --fine-tune-mode full-model --use_gpu
 ## 👩‍💻 Contributors
 
 * [Jihyeon0604](https://github.com/Jihyeon0604)
-* [2rayjja](https://github.com/2rayjja)
+* [2rayjja](https://github.com/2rayija)
 * [ha-hyeon](https://github.com/ha-hyeon)
 
 ---
