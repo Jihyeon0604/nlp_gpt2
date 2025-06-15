@@ -6,21 +6,13 @@
 
 ---
 
-## 🗂 프로젝트 구조
+## 🗂 수정된 프로젝트 파일
 
 ```
 
-📁 data               → 전처리된 데이터셋(csv) 저장 폴더
-📁 models             → 모델 정의 파일 (e.g., GPT2Model)
-📁 modules            → Attention, Transformer block 등 하위 모듈 정의
-📁 predictions        → 예측 결과 저장 폴더 (csv 출력됨)
-
 📄 classifier\_baseline.py   → Full fine-tuning 기반 감정분석 모델 실행 파일 (SST, CFIMDB)
 📄 classifier\_taskA.py      → ULMFiT 전략 적용 모델 실행 파일
-📄 config.py                → 모델 설정 및 파라미터 관리
-📄 datasets.py              → Dataset 클래스 및 tokenizer 처리 정의
-📄 env.yml                  → Conda 환경 설정 파일
-📄 README.md                → 실행 및 실험 안내 파일
+
 
 ````
 
@@ -28,13 +20,15 @@
 
 ## 🧪 실험 환경
 
-- **환경**: Google Colab (T4 GPU 사용)
 - **프레임워크**: PyTorch, Huggingface Transformers
 - **Python 버전**: 3.8
+- **환경**:
+  - 감정분석 : Google Colab (T4 GPU 사용)
 - **훈련 시간**:
-  - SST-5 (Baseline): 약 25분
-  - SST-5 (ULMFiT): 약 20분
-  - CFIMDB: 약 15분
+  - 감정분석 :
+    - SST-5 (Baseline): 약 25분
+    - SST-5 (ULMFiT): 약 20분
+    - CFIMDB: 약 15분
 
 ---
 
@@ -47,13 +41,13 @@ conda env create -f env.yml
 conda activate gpt2-nlp
 ````
 
-### 2. 베이스라인 감정분석 실행 (SST + CFIMDB)
+### 2. 감정분석 베이스라인 실행 (SST + CFIMDB)
 
 ```bash
 python classifier_baseline.py --fine-tune-mode full-model --use_gpu
 ```
 
-### 3. ULMFiT 전략 실험 (Task A)
+### 3. 감정분석 ULMFiT 전략 실험 (Task A)
 
 ```bash
 python classifier_taskA.py --fine-tune-mode full-model --use_gpu
