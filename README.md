@@ -20,15 +20,15 @@
 📄 paraphrase_detection.py         → paraphrase_detection baseline 파일
 📄 paraphrase_detection_taskA.py   → Last Hidden 및 Standard Dropout 기법 적용 파일
 📄 paraphrase_detection_taskB.py   → Mean Pooling 및 Multi-Sample Dropout 기법 적용 파일
-📄 paraphrase_detection_taskC.py   → Hybrid(Mean + Last Hidden) 및 Dynamic Dropout 기법 적용 파일
+📄 paraphrase_detection_taskC.py   → Hybrid(Mean + Last Hidden) 및 Dynamic Dropout 기법 적용 파일 <최고 성능>
 📄 predictions/para-dev-output.csv        → 베이스라인 모델의 Dev 셋 예측 결과
 📄 predictions/para-dev-output_taskA.csv  → Task A 모델의 Dev 셋 예측 결과
 📄 predictions/para-dev-output_taskB.csv  → Task B 모델의 Dev 셋 예측 결과
-📄 predictions/para-dev-output_taskC.csv  → Task C 모델의 Dev 셋 예측 결과
+📄 predictions/para-dev-output_taskC.csv  → Task C 모델의 Dev 셋 예측 결과 <최고 성능>
 📄 predictions/para-test-output.csv       → 베이스라인 모델의 Test 셋 예측 결과
 📄 predictions/para-test-output_taskA.csv → Task A 모델의 Test 셋 예측 결과
 📄 predictions/para-test-output_taskB.csv → Task B 모델의 Test 셋 예측 결과
-📄 predictions/para-test-output_taskC.csv → Task C 모델의 Test 셋 예측 결과
+📄 predictions/para-test-output_taskC.csv → Task C 모델의 Test 셋 예측 결과 <최고 성능>
 
 ````
 
