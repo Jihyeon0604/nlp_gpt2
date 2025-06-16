@@ -17,6 +17,19 @@
 📄 sonnet_generation_taskB.py      → Prefix Tuning 적용 모델 실행 파일
 📄 sonnet_generation_taskC.py      → Unlikelihood Loss + Prefix Tuning 적용 모델 실행 파일
 📄 sonnet_eval.py                  → 생성된 소넷 평가 파일
+📄 paraphrase_detection.py         → paraphrase_detection baseline 파일
+📄 paraphrase_detection_taskA.py   → Last Hidden 및 Standard Dropout 기법 적용 파일
+📄 paraphrase_detection_taskB.py   → Mean Pooling 및 Multi-Sample Dropout 기법 적용 파일
+📄 paraphrase_detection_taskC.py   → Hybrid(Mean + Last Hidden) 및 Dynamic Dropout 기법 적용 파일
+📄 predictions/para-dev-output.csv        → 베이스라인 모델의 Dev 셋 예측 결과
+📄 predictions/para-dev-output_taskA.csv  → Task A 모델의 Dev 셋 예측 결과
+📄 predictions/para-dev-output_taskB.csv  → Task B 모델의 Dev 셋 예측 결과
+📄 predictions/para-dev-output_taskC.csv  → Task C 모델의 Dev 셋 예측 결과
+📄 predictions/para-test-output.csv       → 베이스라인 모델의 Test 셋 예측 결과
+📄 predictions/para-test-output_taskA.csv → Task A 모델의 Test 셋 예측 결과
+📄 predictions/para-test-output_taskB.csv → Task B 모델의 Test 셋 예측 결과
+📄 predictions/para-test-output_taskC.csv → Task C 모델의 Test 셋 예측 결과
+
 ````
 
 ---
@@ -33,6 +46,11 @@
     - SST-5 (Baseline): 약 25분
     - SST-5 (ULMFiT): 약 20분
     - CFIMDB: 약 15분
+  - paraphrase detection :
+    - Baseline: Epoch당 약 46분 
+    - Task A (Last Hidden 및 Standard Dropout): Epoch당 약 39분
+    - Task B (Mean Pooling 및 Multi-Sample Dropout): Epoch당 약 39분
+    - Task C (Hybrid(Mean + Last Hidden) 및 Dynamic Dropout ): Epoch당 약 39분
   - 시 생성 :
     - Baseline: Epoch당 약 1초
     - Task A (Unlikelihood Loss): Epoch당 약 7초
@@ -60,6 +78,20 @@ python classifier_baseline.py --fine-tune-mode full-model --use_gpu
 
 ```bash
 python classifier_taskA.py --fine-tune-mode full-model --use_gpu
+```
+
+### 4. Paraphrase detection 베이스라인 실험 (Baseline)
+
+```bash
+python python paraphrase_detection.py --use_gpu
+```
+
+### 5. Paraphrase detection 실험 (Task A,B,C)
+
+```bash
+python python paraphrase_detection_taskA.py --use_gpu
+python python paraphrase_detection_taskB.py --use_gpu
+python python paraphrase_detection_taskC.py --use_gpu
 ```
 
 ### 6. 시 생성 베이스라인 실행
@@ -107,13 +139,21 @@ taskC 평가 시 filepath = 'predictions/generated_sonnets_C.txt'
 ```
 
 ## 📊 주요 결과 요약
-### 감정분석 성능지표
 
+### 감정분석 성능지표
 | 모델                 | 데이터셋   | Dev Accuracy | Dev F1 Score |
 | ------------------ | ------ | ------------ | ------------ |
 | Baseline (Full FT) | SST-5  | 51.8%        | 49.0%        |
 | Task A (ULMFiT)    | SST-5  | 50.9%        | 48.0%        |
 | Baseline (Full FT) | CFIMDB | 98.8%        | 98.8%        |
+
+### paraphrase detection 성능지표
+| 모델                      | 데이터셋  | Dev Accuracy | Dev F1 Score |
+| ----------------------- | ----- | ------------ | ------------ |
+| Baseline (Full FT)      | Quora | **89.9%**    | **89.2%**    |
+| Task A (Last Hidden)    | Quora | 89.6%        | -            |
+| Task B (Mean + Dropout) | Quora | 89.3%        | 88.7%        |
+| Task C (Mixed Pooling)  | Quora | 89.63%       | 88.99%       |
 
 ### 시 생성 성능지표
 | 모델   | Perplexity ↓ | Distinct-1 ↑ | Distinct-2 ↑ | Rhyming Accuracy ↑ |
