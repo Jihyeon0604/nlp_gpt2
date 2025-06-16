@@ -37,26 +37,43 @@ def seed_everything(seed=11711):
 
 class ParaphraseGPT(nn.Module):
   """Paraphrase Detection을 위해 설계된 여러분의 GPT-2 Model."""
+  # 1. ParaphraseGPT 클래스에 Dropout 추가
 
   def __init__(self, args):
     super().__init__()
     self.gpt = GPT2Model.from_pretrained(model=args.model_size, d=args.d, l=args.l, num_heads=args.num_heads)
-    self.dropout = nn.Dropout(p=0.3)  # Dropout 추가 (확률은 필요시 조정 가능)
+    self.dropout = nn.Dropout(p=0.3)  # Dropout 추가
     self.paraphrase_detection_head = nn.Linear(args.d, 2)  # yes or no
 
+    # 전체 파라미터를 파인튜닝하도록 설정
     for param in self.gpt.parameters():
       param.requires_grad = True
 
   def forward(self, input_ids, attention_mask):
+    # GPT-2 출력 (dict 타입으로 반환됨)
     outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
+
+    # 실제 마지막 hidden state 텐서만 가져오기
     sequence_output = outputs['last_hidden_state']
+
+    # 각 문장의 마지막 토큰 인덱스 계산
     last_token_indices = attention_mask.sum(dim=1) - 1
+
+    # 마지막 토큰 위치의 hidden state 추출
     last_hidden = sequence_output[torch.arange(sequence_output.size(0)), last_token_indices]
 
-    # Dropout 적용 후 classification head 전달
-    logits = self.paraphrase_detection_head(self.dropout(last_hidden))
+    # classification head로 전달
+    # logits = self.paraphrase_detection_head(last_hidden)
+    logits = self.paraphrase_detection_head(self.dropout(last_hidden))  # Dropout 적용
     return logits
 
+# 2. 추가: Label Smoothing Loss 함수
+def smooth_cross_entropy(logits, labels, smoothing=0.1):
+  confidence = 1.0 - smoothing
+  logprobs = F.log_softmax(logits, dim=-1)
+  nll = -logprobs.gather(dim=-1, index=labels.unsqueeze(1)).squeeze(1)
+  smooth_loss = -logprobs.mean(dim=-1)
+  return (confidence * nll + smoothing * smooth_loss).mean()
 
 def save_model(model, optimizer, args, filepath):
   save_info = {
@@ -86,7 +103,14 @@ def train(args):
 
   args = add_arguments(args)
   model = ParaphraseGPT(args).to(device)
-  optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=0.)
+  # optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=0.)
+  # 3. LLRD Optimizer 적용
+  optimizer = AdamW([
+    {"params": model.gpt.gpt_layers[:args.l//2].parameters(), "lr": args.lr * 0.5},
+    {"params": model.gpt.gpt_layers[args.l//2:].parameters(), "lr": args.lr},
+    {"params": model.paraphrase_detection_head.parameters(), "lr": args.lr * 2}
+  ], weight_decay=0.)
+  
   best_dev_acc = 0
 
   for epoch in range(args.epochs):
@@ -100,7 +124,8 @@ def train(args):
 
       optimizer.zero_grad()
       logits = model(b_ids, b_mask)
-      loss = F.cross_entropy(logits, labels, reduction='mean')
+      # loss = F.cross_entropy(logits, labels, reduction='mean')
+      loss = smooth_cross_entropy(logits, labels, smoothing=0.1)  # Label Smoothing Loss 적용
       loss.backward()
       optimizer.step()
 

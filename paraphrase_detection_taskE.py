@@ -6,8 +6,6 @@ import torch.nn.functional as F
 
 from torch import nn
 from torch.utils.data import DataLoader
-from transformers import get_cosine_schedule_with_warmup  # ✅ 추가: Warmup + Cosine Scheduler
-from sklearn.metrics import precision_score, recall_score  # ✅ 추가: Precision, Recall 계산용
 from tqdm import tqdm
 
 from datasets import (
@@ -19,12 +17,13 @@ from evaluation import model_eval_paraphrase, model_test_paraphrase
 from models.gpt2 import GPT2Model
 from optimizer import AdamW
 
+# safe_globals로 Namespace 허용
 from torch.serialization import safe_globals
 from argparse import Namespace
 import numpy.core
 
-TQDM_DISABLE = False
 
+TQDM_DISABLE = False
 
 def seed_everything(seed=11711):
   random.seed(seed)
@@ -38,44 +37,25 @@ def seed_everything(seed=11711):
 
 class ParaphraseGPT(nn.Module):
   """Paraphrase Detection을 위해 설계된 여러분의 GPT-2 Model."""
-  # 1. ParaphraseGPT 클래스에 Dropout 추가
 
   def __init__(self, args):
     super().__init__()
     self.gpt = GPT2Model.from_pretrained(model=args.model_size, d=args.d, l=args.l, num_heads=args.num_heads)
-    self.dropout = nn.Dropout(p=0.3)  # Dropout 추가
+    self.dropout = nn.Dropout(p=0.3)  # Dropout 추가 (확률은 필요시 조정 가능)
     self.paraphrase_detection_head = nn.Linear(args.d, 2)  # yes or no
 
-    # 전체 파라미터를 파인튜닝하도록 설정
     for param in self.gpt.parameters():
       param.requires_grad = True
 
   def forward(self, input_ids, attention_mask):
     outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
     sequence_output = outputs['last_hidden_state']
+    last_token_indices = attention_mask.sum(dim=1) - 1
+    last_hidden = sequence_output[torch.arange(sequence_output.size(0)), last_token_indices]
 
-    # Mean Pooling
-    mask = attention_mask.unsqueeze(-1).expand(sequence_output.size()).float()
-    sum_hidden = (sequence_output * mask).sum(dim=1)
-    mask_sum = mask.sum(dim=1)
-    mask_sum[mask_sum == 0] = 1e-8  # divide-by-zero 방지
-    mean_hidden = sum_hidden / mask_sum
-
-    # Multi-Sample Dropout (✅ 수정: 5회 적용)
-    logits = 0
-    for _ in range(5):
-      logits += self.paraphrase_detection_head(self.dropout(mean_hidden))
-    logits /= 5
+    # Dropout 적용 후 classification head 전달
+    logits = self.paraphrase_detection_head(self.dropout(last_hidden))
     return logits
-
-# 2. 추가: Label Smoothing Loss 함수
-
-def smooth_cross_entropy(logits, labels, smoothing=0.1):
-  confidence = 1.0 - smoothing
-  logprobs = F.log_softmax(logits, dim=-1)
-  nll = -logprobs.gather(dim=-1, index=labels.unsqueeze(1)).squeeze(1)
-  smooth_loss = -logprobs.mean(dim=-1)
-  return (confidence * nll + smoothing * smooth_loss).mean()
 
 
 def save_model(model, optimizer, args, filepath):
@@ -106,21 +86,8 @@ def train(args):
 
   args = add_arguments(args)
   model = ParaphraseGPT(args).to(device)
-
-  # optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=0.)
-  # 3. LLRD Optimizer 적용
-  optimizer = AdamW([
-    {"params": model.gpt.gpt_layers[:args.l//2].parameters(), "lr": args.lr * 0.5},
-    {"params": model.gpt.gpt_layers[args.l//2:].parameters(), "lr": args.lr},
-    {"params": model.paraphrase_detection_head.parameters(), "lr": args.lr * 2}
-  ], weight_decay=0.)
-
-  # ✅ Warmup + CosineAnnealing scheduler 추가
-  total_steps = len(para_train_dataloader) * args.epochs
-  warmup_steps = int(total_steps * 0.06)
-  scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
-
-  best_score = -float('inf')  # ✅ score 기반 저장
+  optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=0.)
+  best_dev_acc = 0
 
   for epoch in range(args.epochs):
     model.train()
@@ -133,27 +100,18 @@ def train(args):
 
       optimizer.zero_grad()
       logits = model(b_ids, b_mask)
-      loss = smooth_cross_entropy(logits, labels, smoothing=0.1)  # Label Smoothing Loss 적용
+      loss = F.cross_entropy(logits, labels, reduction='mean')
       loss.backward()
-      torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)  # ✅ Gradient Clipping 적용
       optimizer.step()
-      scheduler.step()  # ✅ warmup+cosine step
 
       train_loss += loss.item()
       num_batches += 1
 
     train_loss = train_loss / num_batches
-    dev_acc, dev_f1, dev_preds, dev_labels, _ = model_eval_paraphrase(para_dev_dataloader, model, device)
+    dev_acc, dev_f1, *_ = model_eval_paraphrase(para_dev_dataloader, model, device)
 
-
-    dev_precision = precision_score(dev_labels, dev_preds)  # ✅ 추가
-    dev_recall = recall_score(dev_labels, dev_preds)        # ✅ 추가
-    score = dev_acc
-
-    print(f"[Eval] acc: {dev_acc:.4f}, f1: {dev_f1:.4f}, precision: {dev_precision:.4f}, recall: {dev_recall:.4f}, score: {score:.4f}")
-    
-    if score > best_score:
-      best_score = score
+    if dev_acc > best_dev_acc:
+      best_dev_acc = dev_acc
       save_model(model, optimizer, args, args.filepath)
 
     print(f"Epoch {epoch}: train loss :: {train_loss:.3f}, dev acc :: {dev_acc:.3f}")
@@ -162,6 +120,7 @@ def train(args):
 @torch.no_grad()
 def test(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
+  # 안전한 global 등록 + weights_only=False 설정
   with safe_globals([Namespace, np.core.multiarray._reconstruct]):
     saved = torch.load(args.filepath, weights_only=False)
 
@@ -169,7 +128,7 @@ def test(args):
   model.load_state_dict(saved['model'])
   model.eval()
   print(f"Loaded model to test from {args.filepath}")
-
+  
   para_dev_data = load_paraphrase_data(args.para_dev)
   para_test_data = load_paraphrase_data(args.para_test, split='test')
 

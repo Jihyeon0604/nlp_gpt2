@@ -6,6 +6,8 @@ import torch.nn.functional as F
 
 from torch import nn
 from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from sklearn.metrics import precision_score, recall_score
 from tqdm import tqdm
 
 from datasets import (
@@ -17,11 +19,9 @@ from evaluation import model_eval_paraphrase, model_test_paraphrase
 from models.gpt2 import GPT2Model
 from optimizer import AdamW
 
-# safe_globals로 Namespace 허용
 from torch.serialization import safe_globals
 from argparse import Namespace
 import numpy.core
-
 
 TQDM_DISABLE = False
 
@@ -35,39 +35,42 @@ def seed_everything(seed=11711):
   torch.backends.cudnn.deterministic = True
 
 
-class ParaphraseGPT(nn.Module):
-  """Paraphrase Detection을 위해 설계된 여러분의 GPT-2 Model."""
-  # 1. ParaphraseGPT 클래스에 Dropout 추가
+def dropout_dynamic(x, epoch, total_epochs):
+  p = 0.1 + 0.2 * (epoch / total_epochs)
+  return F.dropout(x, p=p, training=True)
 
+class ParaphraseGPT(nn.Module):
   def __init__(self, args):
     super().__init__()
+    self.args = args
     self.gpt = GPT2Model.from_pretrained(model=args.model_size, d=args.d, l=args.l, num_heads=args.num_heads)
-    self.dropout = nn.Dropout(p=0.3)  # Dropout 추가
-    self.paraphrase_detection_head = nn.Linear(args.d, 2)  # yes or no
+    self.paraphrase_detection_head = nn.Linear(args.d, 2)
 
-    # 전체 파라미터를 파인튜닝하도록 설정
     for param in self.gpt.parameters():
       param.requires_grad = True
 
-  def forward(self, input_ids, attention_mask):
-    # GPT-2 출력 (dict 타입으로 반환됨)
+  def forward(self, input_ids, attention_mask, epoch=None):
+    if epoch is None:
+        epoch = 0  # 평가 시 dropout_dynamic을 위한 기본값
+    
     outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
-
-    # 실제 마지막 hidden state 텐서만 가져오기
     sequence_output = outputs['last_hidden_state']
 
-    # 각 문장의 마지막 토큰 인덱스 계산
-    last_token_indices = attention_mask.sum(dim=1) - 1
+    mask = attention_mask.unsqueeze(-1).expand(sequence_output.size()).float()
+    sum_hidden = (sequence_output * mask).sum(dim=1)
+    mean_hidden = sum_hidden / mask.sum(dim=1).clamp(min=1e-8)
 
-    # 마지막 토큰 위치의 hidden state 추출
+    last_token_indices = attention_mask.sum(dim=1) - 1
     last_hidden = sequence_output[torch.arange(sequence_output.size(0)), last_token_indices]
 
-    # classification head로 전달
-    # logits = self.paraphrase_detection_head(last_hidden)
-    logits = self.paraphrase_detection_head(self.dropout(last_hidden))  # Dropout 적용
+    mixed_hidden = 0.7 * mean_hidden + 0.3 * last_hidden
+
+    logits = 0
+    for _ in range(3):
+      logits += self.paraphrase_detection_head(dropout_dynamic(mixed_hidden, epoch, self.args.epochs))
+    logits /= 3
     return logits
 
-# 2. 추가: Label Smoothing Loss 함수
 def smooth_cross_entropy(logits, labels, smoothing=0.1):
   confidence = 1.0 - smoothing
   logprobs = F.log_softmax(logits, dim=-1)
@@ -87,7 +90,6 @@ def save_model(model, optimizer, args, filepath):
   torch.save(save_info, filepath)
   print(f"save the model to {filepath}")
 
-
 def train(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
   para_train_data = load_paraphrase_data(args.para_train)
@@ -103,14 +105,14 @@ def train(args):
 
   args = add_arguments(args)
   model = ParaphraseGPT(args).to(device)
-  # optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=0.)
-  # 3. LLRD Optimizer 적용
+
   optimizer = AdamW([
     {"params": model.gpt.gpt_layers[:args.l//2].parameters(), "lr": args.lr * 0.5},
     {"params": model.gpt.gpt_layers[args.l//2:].parameters(), "lr": args.lr},
     {"params": model.paraphrase_detection_head.parameters(), "lr": args.lr * 2}
   ], weight_decay=0.)
-  
+
+  scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
   best_dev_acc = 0
 
   for epoch in range(args.epochs):
@@ -123,29 +125,33 @@ def train(args):
       b_ids, b_mask, labels = b_ids.to(device), b_mask.to(device), labels.to(device)
 
       optimizer.zero_grad()
-      logits = model(b_ids, b_mask)
-      # loss = F.cross_entropy(logits, labels, reduction='mean')
-      loss = smooth_cross_entropy(logits, labels, smoothing=0.1)  # Label Smoothing Loss 적용
+      logits = model(b_ids, b_mask, epoch)
+      loss = smooth_cross_entropy(logits, labels, smoothing=0.1)
       loss.backward()
       optimizer.step()
 
       train_loss += loss.item()
       num_batches += 1
 
-    train_loss = train_loss / num_batches
-    dev_acc, dev_f1, *_ = model_eval_paraphrase(para_dev_dataloader, model, device)
+    scheduler.step()
+    train_loss /= num_batches
+    dev_acc, dev_f1, dev_preds, dev_labels, _ = model_eval_paraphrase(para_dev_dataloader, model, device)
+
+    dev_precision = precision_score(dev_labels, dev_preds)
+    dev_recall = recall_score(dev_labels, dev_preds)
+
+    print(f"[Eval] acc: {dev_acc:.4f}, f1: {dev_f1:.4f}, precision: {dev_precision:.4f}, recall: {dev_recall:.4f}")
 
     if dev_acc > best_dev_acc:
       best_dev_acc = dev_acc
       save_model(model, optimizer, args, args.filepath)
 
-    print(f"Epoch {epoch}: train loss :: {train_loss:.3f}, dev acc :: {dev_acc:.3f}")
-
+    # print(f"Epoch {epoch}: train loss :: {train_loss:.4f}, dev acc :: {dev_acc:.4f}")
+    print(f"Epoch {epoch}: train loss :: {train_loss:.4f}, dev acc :: {dev_acc:.4f}, f1 :: {dev_f1:.4f}, precision :: {dev_precision:.4f}, recall :: {dev_recall:.4f}")
 
 @torch.no_grad()
 def test(args):
   device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-  # 안전한 global 등록 + weights_only=False 설정
   with safe_globals([Namespace, np.core.multiarray._reconstruct]):
     saved = torch.load(args.filepath, weights_only=False)
 
@@ -153,7 +159,7 @@ def test(args):
   model.load_state_dict(saved['model'])
   model.eval()
   print(f"Loaded model to test from {args.filepath}")
-  
+
   para_dev_data = load_paraphrase_data(args.para_dev)
   para_test_data = load_paraphrase_data(args.para_test, split='test')
 
@@ -179,7 +185,6 @@ def test(args):
     for p, s in zip(test_para_sent_ids, test_para_y_pred):
       f.write(f"{p}, {s} \n")
 
-
 def get_args():
   parser = argparse.ArgumentParser()
   parser.add_argument("--para_train", type=str, default="data/quora-train.csv")
@@ -195,7 +200,6 @@ def get_args():
   parser.add_argument("--model_size", type=str, choices=['gpt2', 'gpt2-medium', 'gpt2-large'], default='gpt2')
   return parser.parse_args()
 
-
 def add_arguments(args):
   if args.model_size == 'gpt2':
     args.d, args.l, args.num_heads = 768, 12, 12
@@ -206,7 +210,6 @@ def add_arguments(args):
   else:
     raise Exception(f'{args.model_size} is not supported.')
   return args
-
 
 if __name__ == "__main__":
   args = get_args()
