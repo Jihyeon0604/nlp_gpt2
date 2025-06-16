@@ -16,8 +16,7 @@
 📄 sonnet_generation_taskA.py      → Unlikelihood Loss 적용 모델 실행 파일
 📄 sonnet_generation_taskB.py      → Prefix Tuning 적용 모델 실행 파일
 📄 sonnet_generation_taskC.py      → Unlikelihood Loss + Prefix Tuning 적용 모델 실행 파일
-
-
+📄 sonnet_eval.py                  → 생성된 소넷 평가 파일
 ````
 
 ---
@@ -77,6 +76,36 @@ python sonnet_generation_taskB.py --use_gpu
 python sonnet_generation_taskC.py --use_gpu
 ```
 
+### 8. 시 생성 저장 경로 및 평가 방법
+#### sonnet_generation_baseline.py 실행 시
+가중치는 args.filepath (default = f'{args.epochs}-{args.lr}-sonnet.pt')에 저장\
+생성된 소넷은 args.sonnet_out (default = predictions/generated_sonnets.txt)에 저장
+
+#### sonnet_generation_taskA.py 실행 시
+가중치는 f'{args.epochs}-{args.lr}-sonnet_A.pt'에 저장\
+생성된 소넷은 predictions/generated_sonnets_A.txt에 저장
+
+#### sonnet_generation_taskB.py 실행 시
+가중치는 f'{args.epochs}-{args.lr}-sonnet_B.pt'에 저장\
+생성된 소넷은 predictions/generated_sonnets_B.txt에 저장 
+
+#### sonnet_generation_taskC.py 실행 시
+가중치는 f'{args.epochs}-{args.lr}-sonnet_C.pt'에 저장\
+생성된 소넷은 predictions/generated_sonnets_C.txt에 저장
+
+이후 sonnet_eval.py로 실행 생성된 소넷 평가 가능
+```bash
+python sonnet_eval.py
+```
+
+sonnet_eval.py의 161번째 줄 filepath = 'predictions/generated_sonnets.txt'를 위의 args.sonnet_out에 맞게 수정한 후 sonnet_eval 실행
+```bash
+baseline 평가 시 filepath = 'predictions/generated_sonnets.txt'
+taskA 평가 시 filepath = 'predictions/generated_sonnets_A.txt'
+taskB 평가 시 filepath = 'predictions/generated_sonnets_B.txt'
+taskC 평가 시 filepath = 'predictions/generated_sonnets_C.txt'
+```
+
 ## 📊 주요 결과 요약
 ### 감정분석 성능지표
 
@@ -87,32 +116,25 @@ python sonnet_generation_taskC.py --use_gpu
 | Baseline (Full FT) | CFIMDB | 98.8%        | 98.8%        |
 
 ### 시 생성 성능지표
-| 전   | Perplexity ↓ | Distinct-1 ↑ | Distinct-2 ↑ | Rhyming Accuracy ↑ |
-| ---- | ------------ | ------------ | ------------ | ------------------ |
-| Base | 55.73        | 0.621        | 0.927        | 0.141              |
-| A    | 51.68        | 0.613        | 0.919        | **0.215**          |
-| B    | **50.11**    | 0.572        | 0.878        | 0.166              |
-| C    | 55.70        | **0.641**    | **0.944**    | 0.132              |
+| 모델   | Perplexity ↓ | Distinct-1 ↑ | Distinct-2 ↑ | Rhyming Accuracy ↑ |
+| -------- | ------------ | ------------ | ------------ | ------------------ |
+| Baseline | 55.73        | 0.621        | 0.927        | 0.141              |
+| Task A    | 51.68        | 0.613        | 0.919        | **0.215**          |
+| Task B    | **50.11**    | 0.572        | 0.878        | 0.166              |
+| Task C    | 55.70        | **0.641**    | **0.944**    | 0.132              |
 
 📌 분석 및 인사이트
-**Task A (Unlikelihood Loss)**는 가장 균형 잡힌 성능을 보임:
-
-Perplexity 개선 (55.73 → 51.68)
-
-Rhyming Accuracy 향상 (0.141 → 0.215)
-
+**Task A (Unlikelihood Loss)**는 가장 균형 잡힌 성능을 보임:\
+Perplexity 개선 (55.73 → 51.68)\
+Rhyming Accuracy 향상 (0.141 → 0.215)\
 Distinct 지표 소폭 하락했으나 여전히 우수한 다양성 유지
 
-Task B (Prefix Tuning):
-
-가장 낮은 Perplexity 기록 (50.11)
-
+Task B (Prefix Tuning):\
+가장 낮은 Perplexity 기록 (50.11)\
 하지만 다양성(Distinct-1/2) 저하
 
-Task C (Unlikelihood + Prefix):
-
-가장 높은 다양성(Distinct-1: 0.641, Distinct-2: 0.944)
-
+Task C (Unlikelihood + Prefix):\
+가장 높은 다양성(Distinct-1: 0.641, Distinct-2: 0.944)\
 하지만 Rhyming Accuracy가 가장 낮음 (0.132)
 
 ---
