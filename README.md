@@ -40,6 +40,7 @@
 - **Python 버전**: 3.8
 - **환경**:
   - 감정분석 : Google Colab (T4 GPU 사용)
+  - paraphrase detection : Google Colab (L4 GPU 사용)
   - 시 생성 : NVIDIA TITAN RTX 1대  
 - **훈련 시간**:
   - 감정분석 :
@@ -84,6 +85,25 @@ python classifier_taskA.py --fine-tune-mode full-model --use_gpu
 
 ```bash
 python python paraphrase_detection.py --use_gpu
+```
+
+### 코랩용
+```bash
+from google.colab import drive
+drive.mount('/content/drive')
+!git clone https://github.com/Jihyeon0604/nlp_gpt2.git
+%cd nlp_gpt2
+!pip install -r requirements.txt
+!pip install sacrebleu
+!pip install huggingface_hub[hf_xet]
+!python paraphrase_detection.py --use_gpu
+# 경로 지정
+!mkdir -p /content/drive/MyDrive/
+# 저장
+# 파일 복사하면서 이름 바꾸기
+!cp predictions/para-dev-output.csv /content/drive/MyDrive/para-dev-output.csv.csv
+!cp predictions/para-test-output.csv /content/drive/MyDrive/para-test-output.csv
+!cp 10-1e-05-paraphrase_task.pt /content/drive/MyDrive/10-1e-05-paraphrase_task.pt
 ```
 
 ### 5. Paraphrase detection 실험 (Task A,B,C)
