@@ -9,7 +9,7 @@
 ## 🗂 수정된 프로젝트 파일
 
 ```
-
+📂 최종 보고서 & 발표자료   → 최종 보고서(pdf)와 발표 자료(pdf)가 포함된 파일
 📄 classifier\_baseline.py   → Full fine-tuning 기반 감정분석 모델 실행 파일 (SST, CFIMDB)
 📄 classifier\_taskA.py      → ULMFiT 전략 적용 모델 실행 파일
 📄 sonnet_generation_baseline.py   → fine-tuning 기반 기본 모델 실행 파일
