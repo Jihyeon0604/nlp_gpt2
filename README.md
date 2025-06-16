@@ -12,6 +12,10 @@
 
 📄 classifier\_baseline.py   → Full fine-tuning 기반 감정분석 모델 실행 파일 (SST, CFIMDB)
 📄 classifier\_taskA.py      → ULMFiT 전략 적용 모델 실행 파일
+📄 sonnet_generation_baseline.py   → fine-tuning 기반 기본 모델 실행 파일
+📄 sonnet_generation_taskA.py      → Unlikelihood Loss 적용 모델 실행 파일
+📄 sonnet_generation_taskB.py      → Prefix Tuning 적용 모델 실행 파일
+📄 sonnet_generation_taskC.py      → Unlikelihood Loss + Prefix Tuning 적용 모델 실행 파일
 
 
 ````
@@ -24,11 +28,17 @@
 - **Python 버전**: 3.8
 - **환경**:
   - 감정분석 : Google Colab (T4 GPU 사용)
+  - 시 생성 : NVIDIA TITAN RTX 1대  
 - **훈련 시간**:
   - 감정분석 :
     - SST-5 (Baseline): 약 25분
     - SST-5 (ULMFiT): 약 20분
     - CFIMDB: 약 15분
+  - 시 생성 :
+    - Baseline: Epoch당 약 1초
+    - Task A (Unlikelihood Loss): Epoch당 약 7초
+    - Task B (Prefix Tuning): Epoch당 약 1초
+    - Task C (A+B 혼합): Epoch당 약 7초
 
 ---
 
@@ -53,6 +63,19 @@ python classifier_baseline.py --fine-tune-mode full-model --use_gpu
 python classifier_taskA.py --fine-tune-mode full-model --use_gpu
 ```
 
+### 6. 시 생성 베이스라인 실행
+
+```bash
+python sonnet_generation_baseline.py --use_gpu
+```
+
+### 7. 시 생성 전략 실험 (Task A, B, C)
+
+```bash
+python sonnet_generation_taskA.py --use_gpu
+python sonnet_generation_taskB.py --use_gpu
+python sonnet_generation_taskC.py --use_gpu
+```
 
 ## 📊 주요 결과 요약
 
@@ -61,6 +84,35 @@ python classifier_taskA.py --fine-tune-mode full-model --use_gpu
 | Baseline (Full FT) | SST-5  | 51.8%        | 49.0%        |
 | Task A (ULMFiT)    | SST-5  | 50.9%        | 48.0%        |
 | Baseline (Full FT) | CFIMDB | 98.8%        | 98.8%        |
+
+### 시 생성 성능지표
+| 전   | Perplexity ↓ | Distinct-1 ↑ | Distinct-2 ↑ | Rhyming Accuracy ↑ |
+| ---- | ------------ | ------------ | ------------ | ------------------ |
+| Base | 55.73        | 0.621        | 0.927        | 0.141              |
+| A    | 51.68        | 0.613        | 0.919        | **0.215**          |
+| B    | **50.11**    | 0.572        | 0.878        | 0.166              |
+| C    | 55.70        | **0.641**    | **0.944**    | 0.132              |
+
+📌 분석 및 인사이트
+**Task A (Unlikelihood Loss)**는 가장 균형 잡힌 성능을 보임:
+
+Perplexity 개선 (55.73 → 51.68)
+
+Rhyming Accuracy 향상 (0.141 → 0.215)
+
+Distinct 지표 소폭 하락했으나 여전히 우수한 다양성 유지
+
+Task B (Prefix Tuning):
+
+가장 낮은 Perplexity 기록 (50.11)
+
+하지만 다양성(Distinct-1/2) 저하
+
+Task C (Unlikelihood + Prefix):
+
+가장 높은 다양성(Distinct-1: 0.641, Distinct-2: 0.944)
+
+하지만 Rhyming Accuracy가 가장 낮음 (0.132)
 
 ---
 
