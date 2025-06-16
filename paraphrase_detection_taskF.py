@@ -146,7 +146,8 @@ def train(args):
       best_dev_acc = dev_acc
       save_model(model, optimizer, args, args.filepath)
 
-    print(f"Epoch {epoch}: train loss :: {train_loss:.3f}, dev acc :: {dev_acc:.3f}")
+    # print(f"Epoch {epoch}: train loss :: {train_loss:.4f}, dev acc :: {dev_acc:.4f}")
+    print(f"Epoch {epoch}: train loss :: {train_loss:.4f}, dev acc :: {dev_acc:.4f}, f1 :: {dev_f1:.4f}, precision :: {dev_precision:.4f}, recall :: {dev_recall:.4f}")
 
 @torch.no_grad()
 def test(args):
