@@ -24,11 +24,11 @@
 📄 predictions/para-dev-output.csv        → 베이스라인 모델의 Dev 셋 예측 결과
 📄 predictions/para-dev-output_taskA.csv  → Task A 모델의 Dev 셋 예측 결과
 📄 predictions/para-dev-output_taskB.csv  → Task B 모델의 Dev 셋 예측 결과
-📄 predictions/para-dev-output_taskC.csv  → Task C 모델의 Dev 셋 예측 결과 <최고 성능>
+📄 predictions/para-dev-output_taskC.csv  → Task C 모델의 Dev 셋 예측 결과 <최고 성능, 제출용>
 📄 predictions/para-test-output.csv       → 베이스라인 모델의 Test 셋 예측 결과
 📄 predictions/para-test-output_taskA.csv → Task A 모델의 Test 셋 예측 결과
 📄 predictions/para-test-output_taskB.csv → Task B 모델의 Test 셋 예측 결과
-📄 predictions/para-test-output_taskC.csv → Task C 모델의 Test 셋 예측 결과 <최고 성능>
+📄 predictions/para-test-output_taskC.csv → Task C 모델의 Test 셋 예측 결과 <최고 성능, 제출용>
 
 ````
 
