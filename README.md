@@ -100,9 +100,9 @@ python paraphrase_detection_taskC.py --use_gpu
 | 실행 스크립트                         | 가중치 저장                         | Dev 결과 저장                           | Test 결과 저장                           |
 | ------------------------------- | ------------------------------ | ----------------------------------- | ------------------------------------ |
 | `paraphrase_detection.py`       | `10-1e-05-paraphrase.pt`       | `predictions/para-dev-output.csv`   | `predictions/para-test-output.csv`   |
-| `paraphrase_detection_taskA.py` | `10-1e-05-paraphrase_taskA.pt` | `predictions/para-dev-output-A.csv` | `predictions/para-test-output-A.csv` |
-| `paraphrase_detection_taskB.py` | `10-1e-05-paraphrase_taskB.pt` | `predictions/para-dev-output-B.csv` | `predictions/para-test-output-B.csv` |
-| `paraphrase_detection_taskC.py` | `10-1e-05-paraphrase_taskC.pt` | `predictions/para-dev-output-C.csv` | `predictions/para-test-output-C.csv` |
+| `paraphrase_detection_taskA.py` | `10-1e-05-paraphrase_taskA.pt` | `predictions/para-dev-output.csv` | `predictions/para-test-output.csv` |
+| `paraphrase_detection_taskB.py` | `10-1e-05-paraphrase_taskB.pt` | `predictions/para-dev-output.csv` | `predictions/para-test-output.csv` |
+| `paraphrase_detection_taskC.py` | `10-1e-05-paraphrase_taskC.pt` | `predictions/para-dev-output.csv` | `predictions/para-test-output.csv` |
 ```
 
 ### (선택) Google Colab 환경 설정 및 실행 예시
